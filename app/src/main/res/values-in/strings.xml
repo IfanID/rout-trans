@@ -43,6 +43,7 @@
     <string name="action_status">Status</string>
     <string name="action_log">Log terjemahan</string>
     <string name="action_injection_status">Status injeksi</string>
+    <string name="action_diagnostics">Log injeksi</string>
 
     <string name="confirm_install_module">Pasang modul Zygisk yang ada di dalam APK ini? Setelah itu perangkat perlu di-reboot.</string>
     <string name="confirm_remove_module">Hapus modul Zygisk? Terjemahan berhenti setelah reboot berikutnya.</string>
@@ -76,6 +77,7 @@
     <string name="injection_summary_failed">Status injeksi: %1$d aplikasi gagal</string>
     <string name="injection_summary_mixed">Status injeksi: %1$d dari %2$d aplikasi aktif, %3$d gagal</string>
     <string name="injection_detail_empty">Pilih minimal satu aplikasi untuk melihat status injeksinya.</string>
+    <string name="diagnostics_empty">Belum ada log RoutTrans. Setelah menyimpan konfigurasi, buka aplikasi yang dipilih lalu buka menu ini lagi.</string>
 
     <string name="log_empty">Belum ada terjemahan yang tercatat.\n\nSimpan konfigurasi, lalu buka salah satu aplikasi yang dipilih. Setiap teks yang diterjemahkan dan setiap galat (misalnya model belum diunduh) muncul di sini.</string>
     <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>

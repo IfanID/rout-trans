@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.text.method.PasswordTransformationMethod
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
@@ -38,16 +39,27 @@ class ViewScanner(
 
     fun scan(root: View) {
         batch = LinkedHashMap()
-        walk(root)
-        submit()
-    }
-
-    private fun walk(view: View) {
-        if (view.visibility != View.VISIBLE) return
-        if (view is TextView) inspect(view)
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) walk(view.getChildAt(index))
+        // Penelusuran memakai stack, bukan rekursi: pohon View aplikasi besar
+        // (misalnya Compose) bisa sangat dalam dan rekursi berisiko
+        // StackOverflowError yang mematikan proses target.
+        val stack = ArrayDeque<View>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            val view = stack.removeLast()
+            try {
+                if (view.visibility != View.VISIBLE) continue
+                if (view is TextView) inspect(view)
+                if (view is ViewGroup) {
+                    for (index in view.childCount - 1 downTo 0) {
+                        stack.addLast(view.getChildAt(index))
+                    }
+                }
+            } catch (t: Throwable) {
+                // Satu View bermasalah tidak boleh menghentikan pemindaian.
+                Log.w(TAG, "View dilewati", t)
+            }
         }
+        submit()
     }
 
     private fun inspect(view: TextView) {
@@ -123,16 +135,22 @@ class ViewScanner(
 
     private fun apply(view: TextView, hint: Boolean, source: String, translated: String) {
         val state = states[view] ?: return
-        if (hint) {
-            if (view.hint?.toString()?.trim() != source) return
-            state.hintSource = source
-            state.hintTranslated = translated
-            view.hint = translated
-        } else {
-            if (view.text?.toString()?.trim() != source) return
-            state.textSource = source
-            state.textTranslated = translated
-            view.text = translated
+        // Mengubah teks View milik aplikasi lain bisa memicu exception pada
+        // View kustom. Jangan sampai exception itu sampai ke thread utama.
+        try {
+            if (hint) {
+                if (view.hint?.toString()?.trim() != source) return
+                state.hintSource = source
+                state.hintTranslated = translated
+                view.hint = translated
+            } else {
+                if (view.text?.toString()?.trim() != source) return
+                state.textSource = source
+                state.textTranslated = translated
+                view.text = translated
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Teks gagal dipasang", t)
         }
     }
 
@@ -153,6 +171,7 @@ class ViewScanner(
     )
 
     private companion object {
+        const val TAG = "RoutTrans"
         const val RETRY_MS = 60_000L
     }
 }

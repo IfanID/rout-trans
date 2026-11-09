@@ -5,6 +5,7 @@ import android.app.Application
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import id.ifan.routtrans.payload.config.Config
 import id.ifan.routtrans.payload.web.WebViewTranslator
 
@@ -26,14 +27,35 @@ class ActivityWatcher(
 
     private val tick = object : Runnable {
         override fun run() {
-            scan()
+            // Payload berjalan di proses aplikasi lain. Satu exception yang
+            // lolos ke thread utama akan membuat aplikasi target ditutup
+            // sistem, jadi setiap pemindaian dibungkus.
+            try {
+                scan()
+            } catch (t: Throwable) {
+                Log.w(TAG, "Pemindaian dilewati", t)
+            }
             handler.postDelayed(this, config.scanIntervalMs.toLong())
         }
     }
 
+    /**
+     * Pendaftaran callback sengaja dilakukan di thread utama.
+     *
+     * Payload dipasang dari thread JNI, sedangkan saat itu aplikasi target
+     * sedang membuat Activity dan mengiterasi daftar callback. Mendaftar dari
+     * thread lain di tengah iterasi bisa memicu ConcurrentModificationException
+     * di thread utama, yang membuat aplikasi langsung tertutup.
+     */
     fun start() {
-        application.registerActivityLifecycleCallbacks(this)
-        handler.post(tick)
+        handler.post {
+            try {
+                application.registerActivityLifecycleCallbacks(this)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Callback lifecycle gagal dipasang", t)
+            }
+            handler.postDelayed(tick, START_DELAY_MS)
+        }
     }
 
     private fun scan() {
@@ -61,5 +83,12 @@ class ActivityWatcher(
 
     override fun onActivityDestroyed(activity: Activity) {
         if (resumed === activity) resumed = null
+    }
+
+    private companion object {
+        const val TAG = "RoutTrans"
+
+        /** Jeda awal supaya aplikasi selesai menggambar layar pertamanya. */
+        const val START_DELAY_MS = 700L
     }
 }

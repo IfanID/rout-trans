@@ -3,6 +3,7 @@ package id.ifan.routtrans.payload.web
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -37,16 +38,23 @@ class WebViewTranslator(
     private var busy = false
 
     fun scan(root: View) {
-        walk(root)
-    }
-
-    private fun walk(view: View) {
-        if (view is WebView) {
-            install(view)
-            return
-        }
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) walk(view.getChildAt(index))
+        // Stack dipakai agar pohon View yang dalam tidak memicu StackOverflowError
+        // di proses aplikasi target.
+        val stack = ArrayDeque<View>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            val view = stack.removeLast()
+            try {
+                if (view is WebView) {
+                    install(view)
+                } else if (view is ViewGroup) {
+                    for (index in view.childCount - 1 downTo 0) {
+                        stack.addLast(view.getChildAt(index))
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "WebView dilewati", t)
+            }
         }
     }
 
@@ -87,7 +95,11 @@ class WebViewTranslator(
                     )
                 }
                 handler.post {
-                    webView.evaluateJavascript("window.$APPLY($response)", null)
+                    try {
+                        webView.evaluateJavascript("window.$APPLY($response)", null)
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Hasil WebView gagal dipasang", t)
+                    }
                     synchronized(attempted) {
                         for ((text, value) in bySource) {
                             if (value == null) attempted[text] = SystemClock.uptimeMillis()
@@ -123,6 +135,7 @@ class WebViewTranslator(
     private data class Item(val id: Int, val text: String)
 
     private companion object {
+        const val TAG = "RoutTrans"
         const val BRIDGE = "RoutTransBridge"
         const val APPLY = "__routTransApply"
         const val RETRY_MS = 60_000L

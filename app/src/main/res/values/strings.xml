@@ -43,6 +43,7 @@
     <string name="action_status">Status</string>
     <string name="action_log">Translation log</string>
     <string name="action_injection_status">Injection status</string>
+    <string name="action_diagnostics">Injection log</string>
 
     <string name="confirm_install_module">Install the Zygisk module bundled in this APK? A reboot is required afterwards.</string>
     <string name="confirm_remove_module">Remove the Zygisk module? Translation stops after the next reboot.</string>
@@ -76,6 +77,7 @@
     <string name="injection_summary_failed">Injection status: %1$d app(s) failed</string>
     <string name="injection_summary_mixed">Injection status: %1$d of %2$d apps active, %3$d failed</string>
     <string name="injection_detail_empty">Select at least one app to see its injection status.</string>
+    <string name="diagnostics_empty">No RoutTrans log yet. After saving the configuration, open a selected app and then open this menu again.</string>
 
     <string name="log_empty">No translation has been recorded yet.\n\nSave the configuration, then open one of the selected apps. Every translated text and every error (for example a model that has not been downloaded) appears here.</string>
     <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>

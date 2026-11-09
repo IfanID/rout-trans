@@ -101,6 +101,26 @@ std::string packageOf(const std::string &processName) {
     return end == std::string::npos ? processName : processName.substr(0, end);
 }
 
+void clearException(JNIEnv *env) {
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+    }
+}
+
+jobject systemClassLoader(JNIEnv *env) {
+    jclass loaderClass = env->FindClass("java/lang/ClassLoader");
+    jmethodID getSystem = loaderClass == nullptr ? nullptr
+            : env->GetStaticMethodID(loaderClass, "getSystemClassLoader",
+                                     "()Ljava/lang/ClassLoader;");
+    if (getSystem == nullptr) {
+        clearException(env);
+        return nullptr;
+    }
+    jobject loader = env->CallStaticObjectMethod(loaderClass, getSystem);
+    clearException(env);
+    return loader;
+}
+
 // ---------------------------------------------------------------------------
 // Companion (berjalan sebagai root)
 // ---------------------------------------------------------------------------
@@ -168,63 +188,130 @@ struct InstallData {
 
 /** Menunggu Application terbentuk, lalu memuat payload lewat dex class loader. */
 void loadPayload(JNIEnv *env, InstallData *data, jobject application) {
-    jclass byteBufferClass = env->FindClass("java/nio/ByteBuffer");
-    jmethodID allocateDirect = byteBufferClass == nullptr ? nullptr
-            : env->GetStaticMethodID(byteBufferClass, "allocateDirect",
-                                     "(I)Ljava/nio/ByteBuffer;");
-    if (allocateDirect == nullptr) {
-        LOGW("ByteBuffer tidak tersedia");
-        return;
-    }
-    jobject buffer = env->CallStaticObjectMethod(
-            byteBufferClass, allocateDirect, static_cast<jint>(data->dex.size()));
-    void *address = env->GetDirectBufferAddress(buffer);
-    if (address == nullptr) {
-        LOGW("ByteBuffer langsung tidak tersedia");
-        return;
-    }
-    std::memcpy(address, data->dex.data(), data->dex.size());
-
-    jclass applicationClass = env->GetObjectClass(application);
-    jmethodID getClassLoader = env->GetMethodID(
-            applicationClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
-    jobject parent = env->CallObjectMethod(application, getClassLoader);
-
-    jclass loaderClass = env->FindClass("dalvik/system/InMemoryDexClassLoader");
-    jmethodID constructor = loaderClass == nullptr ? nullptr
-            : env->GetMethodID(loaderClass, "<init>",
-                               "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
-    if (constructor == nullptr) {
-        LOGW("InMemoryDexClassLoader tidak tersedia");
-        return;
-    }
-    jobject loader = env->NewObject(loaderClass, constructor, buffer, parent);
-
-    jclass classLoaderClass = env->FindClass("java/lang/ClassLoader");
-    jmethodID loadClass = env->GetMethodID(
-            classLoaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
-    jstring className = env->NewStringUTF(kBootstrapClass);
-    auto bootstrap = static_cast<jclass>(
-            env->CallObjectMethod(loader, loadClass, className));
-    if (bootstrap == nullptr || env->ExceptionCheck()) {
-        env->ExceptionClear();
-        LOGW("Kelas payload tidak ditemukan di dex");
+    // Setiap nilai balik JNI diperiksa null. Memanggil JNI dengan objek null
+    // membuat proses target mati dengan SIGSEGV, dan itu tidak bisa ditangkap
+    // try/catch di sisi Java.
+    if (env->PushLocalFrame(24) != 0) {
+        clearException(env);
+        LOGW("Frame JNI tidak tersedia");
         return;
     }
 
-    jmethodID install = env->GetStaticMethodID(
-            bootstrap, "install", "(Landroid/app/Application;Ljava/lang/String;)V");
-    if (install == nullptr) {
-        env->ExceptionClear();
-        return;
-    }
-    jstring config = env->NewStringUTF(data->config.c_str());
-    env->CallStaticVoidMethod(bootstrap, install, application, config);
-    if (env->ExceptionCheck()) {
-        env->ExceptionDescribe();
-        env->ExceptionClear();
-    } else {
+    bool installed = false;
+    do {
+        jclass byteBufferClass = env->FindClass("java/nio/ByteBuffer");
+        jmethodID allocateDirect = byteBufferClass == nullptr ? nullptr
+                : env->GetStaticMethodID(byteBufferClass, "allocateDirect",
+                                         "(I)Ljava/nio/ByteBuffer;");
+        if (allocateDirect == nullptr) {
+            clearException(env);
+            LOGW("ByteBuffer tidak tersedia");
+            break;
+        }
+
+        jobject buffer = env->CallStaticObjectMethod(
+                byteBufferClass, allocateDirect, static_cast<jint>(data->dex.size()));
+        if (buffer == nullptr || env->ExceptionCheck()) {
+            clearException(env);
+            LOGW("ByteBuffer gagal dibuat");
+            break;
+        }
+        void *address = env->GetDirectBufferAddress(buffer);
+        if (address == nullptr) {
+            LOGW("ByteBuffer langsung tidak tersedia");
+            break;
+        }
+        std::memcpy(address, data->dex.data(), data->dex.size());
+
+        jobject parent = nullptr;
+        jclass applicationClass = env->GetObjectClass(application);
+        jmethodID getClassLoader = applicationClass == nullptr ? nullptr
+                : env->GetMethodID(applicationClass, "getClassLoader",
+                                   "()Ljava/lang/ClassLoader;");
+        if (getClassLoader == nullptr) {
+            clearException(env);
+        } else {
+            parent = env->CallObjectMethod(application, getClassLoader);
+            if (env->ExceptionCheck() || parent == nullptr) {
+                clearException(env);
+                parent = nullptr;
+            }
+        }
+        if (parent == nullptr) {
+            parent = systemClassLoader(env);
+        }
+        if (parent == nullptr) {
+            LOGW("ClassLoader induk tidak tersedia");
+            break;
+        }
+
+        jclass loaderClass = env->FindClass("dalvik/system/InMemoryDexClassLoader");
+        jmethodID constructor = loaderClass == nullptr ? nullptr
+                : env->GetMethodID(loaderClass, "<init>",
+                                   "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
+        if (constructor == nullptr) {
+            clearException(env);
+            LOGW("InMemoryDexClassLoader tidak tersedia");
+            break;
+        }
+
+        jobject loader = env->NewObject(loaderClass, constructor, buffer, parent);
+        if (loader == nullptr || env->ExceptionCheck()) {
+            // Dex ditolak loader (misalnya format tidak dikenal). Berhenti di
+            // sini: memakai loader null akan langsung mematikan proses target.
+            env->ExceptionDescribe();
+            clearException(env);
+            LOGW("InMemoryDexClassLoader menolak dex payload");
+            break;
+        }
+
+        jclass loaderBase = env->FindClass("java/lang/ClassLoader");
+        jmethodID loadClass = loaderBase == nullptr ? nullptr
+                : env->GetMethodID(loaderBase, "loadClass",
+                                   "(Ljava/lang/String;)Ljava/lang/Class;");
+        if (loadClass == nullptr) {
+            clearException(env);
+            LOGW("ClassLoader.loadClass tidak tersedia");
+            break;
+        }
+
+        jstring className = env->NewStringUTF(kBootstrapClass);
+        auto bootstrap = static_cast<jclass>(
+                env->CallObjectMethod(loader, loadClass, className));
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            clearException(env);
+            bootstrap = nullptr;
+        }
+        if (bootstrap == nullptr) {
+            LOGW("Kelas payload tidak ditemukan di dex");
+            break;
+        }
+
+        jmethodID install = env->GetStaticMethodID(
+                bootstrap, "install", "(Landroid/app/Application;Ljava/lang/String;)V");
+        if (install == nullptr) {
+            clearException(env);
+            LOGW("Metode install tidak ditemukan di kelas payload");
+            break;
+        }
+
+        jstring config = env->NewStringUTF(data->config.c_str());
+        env->CallStaticVoidMethod(bootstrap, install, application, config);
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            clearException(env);
+            LOGW("Payload melempar exception saat dipasang");
+            break;
+        }
+        installed = true;
+    } while (false);
+
+    env->PopLocalFrame(nullptr);
+    if (installed) {
         LOGD("Payload RoutTrans dipasang");
+    } else {
+        LOGW("Payload RoutTrans gagal dipasang");
     }
 }
 
@@ -247,8 +334,8 @@ void *installThread(void *raw) {
             ? nullptr
             : env->GetStaticMethodID(activityThread, "currentApplication",
                                      "()Landroid/app/Application;");
-    if (currentApplication == nullptr && env->ExceptionCheck()) {
-        env->ExceptionClear();
+    if (currentApplication == nullptr) {
+        clearException(env);
     }
     for (int attempt = 0; attempt < 400 && currentApplication != nullptr; attempt++) {
         jobject candidate = env->CallStaticObjectMethod(activityThread, currentApplication);

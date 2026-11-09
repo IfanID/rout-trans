@@ -130,6 +130,10 @@ class MainActivity : AppCompatActivity() {
                 showInjectionDetail()
                 true
             }
+            R.id.action_diagnostics -> {
+                showDiagnostics()
+                true
+            }
             R.id.action_log -> {
                 showTranslationLog()
                 true
@@ -448,8 +452,28 @@ class MainActivity : AppCompatActivity() {
         dialog(R.string.action_injection_status, report)
     }
 
-    private fun showTranslationLog() {
-        val entries = TranslationStore.recent()
+    /**
+     * Menampilkan log injeksi dari logcat.
+     *
+     * Payload berjalan di proses aplikasi target, jadi kegagalannya hanya
+     * tercatat di logcat sistem. Tanpa layar ini pengguna tidak punya cara
+     * melihat alasan kegagalan selain memakai komputer.
+     */
+    private fun showDiagnostics() {
+        setBusy(true, getString(R.string.action_diagnostics))
+        worker.execute {
+            val log = RootShell.run(
+                "logcat -d -t 800 -v brief -s RoutTrans:V AndroidRuntime:E System.err:W 2>/dev/null | tail -120"
+            )
+            val report = log.output.trim().ifBlank { getString(R.string.diagnostics_empty) }
+            runOnUiThread {
+                setBusy(false)
+                dialog(R.string.action_diagnostics, report)
+            }
+        }
+    }
+
+    private fun showTranslationLog() {        val entries = TranslationStore.recent()
         if (entries.isEmpty()) {
             dialog(R.string.action_log, getString(R.string.log_empty))
             return
