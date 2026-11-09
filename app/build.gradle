@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'id.ifan.routtrans'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "id.ifan.routtrans"
+        minSdk 31
+        targetSdk 36
+        versionCode 1
+        versionName "1.0.0"
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    packaging {
+        // Model MLKit dan dex payload dibaca lewat jalur khusus, jadi tidak perlu dikompresi ulang.
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'com.google.mlkit:translate:17.0.1'
+    // Dipakai saat sumber bahasa disetel "Deteksi otomatis".
+    implementation 'com.google.mlkit:language-id:17.0.6'
+}

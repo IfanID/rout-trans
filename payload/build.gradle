@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.library'
+}
+
+// Modul ini hanya dibangun menjadi classes.dex yang disuntikkan ke proses app
+// target. Karena itu tidak ada resource, manifest, atau dependensi AndroidX:
+// kelas yang dihasilkan harus bisa dimuat dengan InMemoryDexClassLoader.
+android {
+    namespace 'id.ifan.routtrans.payload'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 31
+        targetSdk 36
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig false
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+// R8 dijalankan terpisah oleh tools/build-payload-dex.sh supaya stdlib Kotlin
+// ikut diringkas ke dalam satu classes.dex.
+tasks.register('copyRuntimeDeps', Copy) {
+    from configurations.releaseRuntimeClasspath
+    include '**/*.jar'
+    into layout.buildDirectory.dir('runtime-libs')
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    // org.json ada di Android, tetapi unit test JVM membutuhkan implementasi asli.
+    testImplementation 'org.json:json:20240303'
+}

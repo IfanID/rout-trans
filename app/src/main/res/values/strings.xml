@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RoutTrans</string>
+
+    <string name="language_auto">Detect automatically</string>
+    <string name="label_from">From language</string>
+    <string name="label_to">To language</string>
+    <string name="action_prepare_model">Prepare model</string>
+    <string name="action_save">Save &amp; apply</string>
+    <string name="hint_apps">Choose apps whose text should be translated</string>
+
+    <string name="status_loading">Loading app list…</string>
+    <string name="status_ready">%1$d apps found. Pick the ones to translate.</string>
+    <string name="status_no_root">Root is not available. RoutTrans needs su to write the configuration.</string>
+    <string name="status_load_failed">The app list could not be loaded.</string>
+    <string name="status_saving">Saving configuration…</string>
+    <string name="status_saved">Configuration saved for %1$d apps. They were stopped so the new configuration is used the next time they open.</string>
+    <string name="status_saved_stop_failed">Configuration saved for %1$d apps, but they could not be stopped. Close them manually before opening them again.</string>
+    <string name="status_saved_no_module">Configuration saved for %1$d apps, but the Zygisk module is not active yet. Install it from the menu, then reboot.</string>
+    <string name="status_save_failed">Saving failed: %1$s</string>
+    <string name="status_downloading">Downloading language model…</string>
+    <string name="status_models_ready">Language models are ready. Translation can now run offline.</string>
+    <string name="status_prepare_failed">Model download failed: %1$s</string>
+    <string name="status_working">Wait for the current operation to finish…</string>
+    <string name="status_installing_module">Installing Zygisk module…</string>
+    <string name="status_removing_module">Removing Zygisk module…</string>
+    <string name="status_checking">Checking status…</string>
+
+    <string name="toast_saved">Configuration applied</string>
+    <string name="toast_save_failed">Configuration was not applied</string>
+    <string name="toast_models_ready">Language models ready</string>
+    <string name="toast_prepare_failed">Model download failed</string>
+    <string name="error_same_language">Source and target language must be different</string>
+    <string name="error_unknown">Unknown error</string>
+
+    <string name="dialog_success">Success</string>
+    <string name="dialog_failure">Failed</string>
+    <string name="dialog_module_installed">Module installed. Reboot the device so Zygisk loads it.\n\n%1$s</string>
+    <string name="dialog_module_removed">Module removed. Reboot the device to make sure it is no longer loaded.</string>
+
+    <string name="action_install_module">Install module</string>
+    <string name="action_remove_module">Remove module</string>
+    <string name="action_status">Status</string>
+    <string name="action_log">Translation log</string>
+    <string name="action_injection_status">Injection status</string>
+
+    <string name="confirm_install_module">Install the Zygisk module bundled in this APK? A reboot is required afterwards.</string>
+    <string name="confirm_remove_module">Remove the Zygisk module? Translation stops after the next reboot.</string>
+
+    <string name="value_yes">Yes</string>
+    <string name="value_no">No</string>
+    <string name="value_none">Never</string>
+    <string name="value_active">Active</string>
+    <string name="value_disabled">Disabled</string>
+    <string name="value_not_installed">Not installed</string>
+
+    <string name="status_line_root">Root: %1$s</string>
+    <string name="status_line_module">Module: %1$s</string>
+    <string name="status_line_provider">Translation service: %1$s</string>
+    <string name="status_line_selected">Selected apps: %1$d</string>
+    <string name="status_line_translations">Texts translated: %1$d</string>
+    <string name="status_line_last">Last translation: %1$s</string>
+    <string name="status_line_injections">Injection reports: %1$d</string>
+    <string name="status_line_last_injection">Last injection: %1$s</string>
+
+    <string name="injection_none">Not injected yet</string>
+    <string name="injection_stale">No injection after the last save</string>
+    <string name="injection_ok">Injected at %1$s</string>
+    <string name="injection_error">Injection failed: %1$s</string>
+    <string name="injection_process">Process: %1$s</string>
+    <string name="injection_languages">%1$s → %2$s</string>
+
+    <string name="injection_summary_none">Injection status: no app selected</string>
+    <string name="injection_summary_waiting">Injection status: waiting — open the selected app</string>
+    <string name="injection_summary_ok">Injection status: active in %1$d of %2$d apps</string>
+    <string name="injection_summary_failed">Injection status: %1$d app(s) failed</string>
+    <string name="injection_summary_mixed">Injection status: %1$d of %2$d apps active, %3$d failed</string>
+    <string name="injection_detail_empty">Select at least one app to see its injection status.</string>
+
+    <string name="log_empty">No translation has been recorded yet.\n\nSave the configuration, then open one of the selected apps. Every translated text and every error (for example a model that has not been downloaded) appears here.</string>
+    <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>
+    <string name="log_entry_error">%1$s  failed\n%2$s → %3$s</string>
+
+    <plurals name="selected_apps">
+        <item quantity="one">%1$d app selected</item>
+        <item quantity="other">%1$d apps selected</item>
+    </plurals>
+</resources>

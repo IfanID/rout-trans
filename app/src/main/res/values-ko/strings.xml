@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RoutTrans</string>
+
+    <string name="language_auto">자동 감지</string>
+    <string name="label_from">원본 언어</string>
+    <string name="label_to">대상 언어</string>
+    <string name="action_prepare_model">모델 준비</string>
+    <string name="action_save">저장 및 적용</string>
+    <string name="hint_apps">텍스트를 번역할 앱을 선택하세요</string>
+
+    <string name="status_loading">앱 목록을 불러오는 중…</string>
+    <string name="status_ready">앱 %1$d개를 찾았습니다. 번역할 앱을 선택하세요.</string>
+    <string name="status_no_root">루트 권한이 없습니다. RoutTrans는 설정을 쓰기 위해 su가 필요합니다.</string>
+    <string name="status_load_failed">앱 목록을 불러오지 못했습니다.</string>
+    <string name="status_saving">설정을 저장하는 중…</string>
+    <string name="status_saved">앱 %1$d개의 설정을 저장했습니다. 새 설정이 다음 실행에 적용되도록 해당 앱을 종료했습니다.</string>
+    <string name="status_saved_stop_failed">앱 %1$d개의 설정을 저장했지만 앱을 종료하지 못했습니다. 다시 열기 전에 직접 종료하세요.</string>
+    <string name="status_saved_no_module">앱 %1$d개의 설정을 저장했지만 Zygisk 모듈이 아직 활성화되지 않았습니다. 메뉴에서 모듈을 설치한 뒤 재부팅하세요.</string>
+    <string name="status_save_failed">저장 실패: %1$s</string>
+    <string name="status_downloading">언어 모델을 내려받는 중…</string>
+    <string name="status_models_ready">언어 모델이 준비되었습니다. 이제 오프라인으로 번역할 수 있습니다.</string>
+    <string name="status_prepare_failed">모델 다운로드 실패: %1$s</string>
+    <string name="status_working">현재 작업이 끝날 때까지 기다리세요…</string>
+    <string name="status_installing_module">Zygisk 모듈을 설치하는 중…</string>
+    <string name="status_removing_module">Zygisk 모듈을 제거하는 중…</string>
+    <string name="status_checking">상태를 확인하는 중…</string>
+
+    <string name="toast_saved">설정이 적용되었습니다</string>
+    <string name="toast_save_failed">설정을 적용하지 못했습니다</string>
+    <string name="toast_models_ready">언어 모델 준비 완료</string>
+    <string name="toast_prepare_failed">모델 다운로드 실패</string>
+    <string name="error_same_language">원본 언어와 대상 언어는 달라야 합니다</string>
+    <string name="error_unknown">알 수 없는 오류</string>
+
+    <string name="dialog_success">성공</string>
+    <string name="dialog_failure">실패</string>
+    <string name="dialog_module_installed">모듈이 설치되었습니다. Zygisk가 불러오도록 기기를 재부팅하세요.\n\n%1$s</string>
+    <string name="dialog_module_removed">모듈이 제거되었습니다. 더 이상 로드되지 않도록 기기를 재부팅하세요.</string>
+
+    <string name="action_install_module">모듈 설치</string>
+    <string name="action_remove_module">모듈 제거</string>
+    <string name="action_status">상태</string>
+    <string name="action_log">번역 로그</string>
+    <string name="action_injection_status">주입 상태</string>
+
+    <string name="confirm_install_module">이 APK에 포함된 Zygisk 모듈을 설치할까요? 설치 후 재부팅해야 합니다.</string>
+    <string name="confirm_remove_module">Zygisk 모듈을 제거할까요? 다음 재부팅 후 번역이 중지됩니다.</string>
+
+    <string name="value_yes">예</string>
+    <string name="value_no">아니요</string>
+    <string name="value_none">없음</string>
+    <string name="value_active">활성</string>
+    <string name="value_disabled">비활성</string>
+    <string name="value_not_installed">설치되지 않음</string>
+
+    <string name="status_line_root">루트: %1$s</string>
+    <string name="status_line_module">모듈: %1$s</string>
+    <string name="status_line_provider">번역 서비스: %1$s</string>
+    <string name="status_line_selected">선택한 앱: %1$d</string>
+    <string name="status_line_translations">번역한 텍스트: %1$d</string>
+    <string name="status_line_last">마지막 번역: %1$s</string>
+    <string name="status_line_injections">주입 보고: %1$d</string>
+    <string name="status_line_last_injection">마지막 주입: %1$s</string>
+
+    <string name="injection_none">아직 주입되지 않음</string>
+    <string name="injection_stale">마지막 저장 이후 주입 없음</string>
+    <string name="injection_ok">%1$s에 주입됨</string>
+    <string name="injection_error">주입 실패: %1$s</string>
+    <string name="injection_process">프로세스: %1$s</string>
+    <string name="injection_languages">%1$s → %2$s</string>
+
+    <string name="injection_summary_none">주입 상태: 선택한 앱 없음</string>
+    <string name="injection_summary_waiting">주입 상태: 대기 중 — 선택한 앱을 여세요</string>
+    <string name="injection_summary_ok">주입 상태: 앱 %2$d개 중 %1$d개 활성</string>
+    <string name="injection_summary_failed">주입 상태: 앱 %1$d개 실패</string>
+    <string name="injection_summary_mixed">주입 상태: 앱 %2$d개 중 %1$d개 활성, %3$d개 실패</string>
+    <string name="injection_detail_empty">주입 상태를 보려면 앱을 하나 이상 선택하세요.</string>
+
+    <string name="log_empty">아직 기록된 번역이 없습니다.\n\n설정을 저장한 뒤 선택한 앱을 여세요. 번역된 모든 텍스트와 오류(예: 아직 내려받지 않은 모델)가 여기에 표시됩니다.</string>
+    <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>
+    <string name="log_entry_error">%1$s  실패\n%2$s → %3$s</string>
+
+    <plurals name="selected_apps">
+        <item quantity="other">%1$d개 앱 선택됨</item>
+    </plurals>
+</resources>

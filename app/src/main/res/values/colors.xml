@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Warna utama dibuat gelap agar teks putih tetap terbaca di semua tema. -->
+    <color name="brand">#1F6F5C</color>
+    <color name="brand_dark">#14453A</color>
+    <color name="brand_light">#4E9E8B</color>
+    <color name="icon_background">#14453A</color>
+
+    <!-- Pewarna status injeksi di daftar aplikasi. -->
+    <color name="injection_ok">#1F6F5C</color>
+    <color name="injection_error">#B3261E</color>
+    <color name="injection_idle">#6B7280</color>
+</resources>

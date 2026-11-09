@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Balon percakapan: lambang teks yang dipertukarkan antar bahasa. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,28h40a10,10 0 0 1 10,10v26a10,10 0 0 1 -10,10h-26l-14,12v-12a10,10 0 0 1 -10,-10v-26a10,10 0 0 1 10,-10z" />
+
+    <path
+        android:fillColor="#14453A"
+        android:pathData="M45,47.5a3.5,3.5 0 1 0 0,7a3.5,3.5 0 1 0 0,-7z" />
+    <path
+        android:fillColor="#14453A"
+        android:pathData="M55,47.5a3.5,3.5 0 1 0 0,7a3.5,3.5 0 1 0 0,-7z" />
+    <path
+        android:fillColor="#14453A"
+        android:pathData="M65,47.5a3.5,3.5 0 1 0 0,7a3.5,3.5 0 1 0 0,-7z" />
+</vector>

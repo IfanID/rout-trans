@@ -1,0 +1,6 @@
+id=routtrans
+name=RoutTrans
+version=1.0.0
+versionCode=1
+author=IfanID
+description=Terjemahan teks dalam aplikasi saat berjalan, berbasis Zygisk. Tidak memakai LSPosed atau EdXposed.

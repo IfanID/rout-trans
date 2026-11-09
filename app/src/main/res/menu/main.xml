@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_install_module"
+        android:title="@string/action_install_module"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_remove_module"
+        android:title="@string/action_remove_module"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_status"
+        android:title="@string/action_status"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_injection_status"
+        android:title="@string/action_injection_status"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_log"
+        android:title="@string/action_log"
+        app:showAsAction="never" />
+</menu>

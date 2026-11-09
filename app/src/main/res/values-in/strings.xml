@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RoutTrans</string>
+
+    <string name="language_auto">Deteksi otomatis</string>
+    <string name="label_from">Dari bahasa</string>
+    <string name="label_to">Ke bahasa</string>
+    <string name="action_prepare_model">Siapkan model</string>
+    <string name="action_save">Simpan &amp; terapkan</string>
+    <string name="hint_apps">Pilih aplikasi yang teksnya diterjemahkan</string>
+
+    <string name="status_loading">Memuat daftar aplikasi…</string>
+    <string name="status_ready">%1$d aplikasi ditemukan. Pilih yang ingin diterjemahkan.</string>
+    <string name="status_no_root">Root tidak tersedia. RoutTrans membutuhkan akses su untuk menulis konfigurasi.</string>
+    <string name="status_load_failed">Daftar aplikasi gagal dimuat.</string>
+    <string name="status_saving">Menyimpan konfigurasi…</string>
+    <string name="status_saved">Konfigurasi tersimpan untuk %1$d aplikasi. Aplikasi target dihentikan agar konfigurasi baru dipakai saat dibuka lagi.</string>
+    <string name="status_saved_stop_failed">Konfigurasi tersimpan untuk %1$d aplikasi, tetapi aplikasinya gagal dihentikan. Tutup manual sebelum membukanya lagi.</string>
+    <string name="status_saved_no_module">Konfigurasi tersimpan untuk %1$d aplikasi, tetapi modul Zygisk belum aktif. Pasang modul dari menu, lalu reboot.</string>
+    <string name="status_save_failed">Gagal menyimpan: %1$s</string>
+    <string name="status_downloading">Mengunduh model bahasa…</string>
+    <string name="status_models_ready">Model bahasa siap. Terjemahan bisa berjalan offline.</string>
+    <string name="status_prepare_failed">Unduhan model gagal: %1$s</string>
+    <string name="status_working">Tunggu operasi yang sedang berjalan selesai…</string>
+    <string name="status_installing_module">Memasang modul Zygisk…</string>
+    <string name="status_removing_module">Menghapus modul Zygisk…</string>
+    <string name="status_checking">Memeriksa status…</string>
+
+    <string name="toast_saved">Konfigurasi diterapkan</string>
+    <string name="toast_save_failed">Konfigurasi gagal diterapkan</string>
+    <string name="toast_models_ready">Model bahasa siap</string>
+    <string name="toast_prepare_failed">Unduhan model gagal</string>
+    <string name="error_same_language">Bahasa sumber dan tujuan tidak boleh sama</string>
+    <string name="error_unknown">Galat tidak diketahui</string>
+
+    <string name="dialog_success">Berhasil</string>
+    <string name="dialog_failure">Gagal</string>
+    <string name="dialog_module_installed">Modul terpasang. Reboot perangkat agar Zygisk memuatnya.\n\n%1$s</string>
+    <string name="dialog_module_removed">Modul dihapus. Reboot perangkat agar modul benar-benar tidak dimuat lagi.</string>
+
+    <string name="action_install_module">Pasang modul</string>
+    <string name="action_remove_module">Hapus modul</string>
+    <string name="action_status">Status</string>
+    <string name="action_log">Log terjemahan</string>
+    <string name="action_injection_status">Status injeksi</string>
+
+    <string name="confirm_install_module">Pasang modul Zygisk yang ada di dalam APK ini? Setelah itu perangkat perlu di-reboot.</string>
+    <string name="confirm_remove_module">Hapus modul Zygisk? Terjemahan berhenti setelah reboot berikutnya.</string>
+
+    <string name="value_yes">Ya</string>
+    <string name="value_no">Tidak</string>
+    <string name="value_none">Belum pernah</string>
+    <string name="value_active">Aktif</string>
+    <string name="value_disabled">Dinonaktifkan</string>
+    <string name="value_not_installed">Belum terpasang</string>
+
+    <string name="status_line_root">Root: %1$s</string>
+    <string name="status_line_module">Modul: %1$s</string>
+    <string name="status_line_provider">Layanan terjemahan: %1$s</string>
+    <string name="status_line_selected">Aplikasi dipilih: %1$d</string>
+    <string name="status_line_translations">Teks diterjemahkan: %1$d</string>
+    <string name="status_line_last">Terjemahan terakhir: %1$s</string>
+    <string name="status_line_injections">Laporan injeksi: %1$d</string>
+    <string name="status_line_last_injection">Injeksi terakhir: %1$s</string>
+
+    <string name="injection_none">Belum disuntik</string>
+    <string name="injection_stale">Belum ada injeksi setelah simpan terakhir</string>
+    <string name="injection_ok">Tersuntik pukul %1$s</string>
+    <string name="injection_error">Injeksi gagal: %1$s</string>
+    <string name="injection_process">Proses: %1$s</string>
+    <string name="injection_languages">%1$s → %2$s</string>
+
+    <string name="injection_summary_none">Status injeksi: belum ada aplikasi dipilih</string>
+    <string name="injection_summary_waiting">Status injeksi: menunggu — buka aplikasi yang dipilih</string>
+    <string name="injection_summary_ok">Status injeksi: aktif di %1$d dari %2$d aplikasi</string>
+    <string name="injection_summary_failed">Status injeksi: %1$d aplikasi gagal</string>
+    <string name="injection_summary_mixed">Status injeksi: %1$d dari %2$d aplikasi aktif, %3$d gagal</string>
+    <string name="injection_detail_empty">Pilih minimal satu aplikasi untuk melihat status injeksinya.</string>
+
+    <string name="log_empty">Belum ada terjemahan yang tercatat.\n\nSimpan konfigurasi, lalu buka salah satu aplikasi yang dipilih. Setiap teks yang diterjemahkan dan setiap galat (misalnya model belum diunduh) muncul di sini.</string>
+    <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>
+    <string name="log_entry_error">%1$s  gagal\n%2$s → %3$s</string>
+
+    <plurals name="selected_apps">
+        <item quantity="other">%1$d aplikasi dipilih</item>
+    </plurals>
+</resources>
