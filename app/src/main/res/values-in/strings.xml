@@ -24,6 +24,10 @@
     <string name="status_working">Tunggu operasi yang sedang berjalan selesai…</string>
     <string name="status_installing_module">Memasang modul Zygisk…</string>
     <string name="status_removing_module">Menghapus modul Zygisk…</string>
+    <string name="status_updating_payload">Memperbarui payload…</string>
+    <string name="toast_payload_updated">Payload diperbarui</string>
+    <string name="toast_module_updated">Modul diperbarui — reboot untuk mengaktifkan</string>
+    <string name="dialog_payload_updated">Payload terbaru sudah disalin ke folder modul. Paksa tutup aplikasi target lalu buka lagi — tidak perlu reboot.</string>
     <string name="status_checking">Memeriksa status…</string>
 
     <string name="toast_saved">Konfigurasi diterapkan</string>
@@ -40,10 +44,13 @@
 
     <string name="action_install_module">Pasang modul</string>
     <string name="action_remove_module">Hapus modul</string>
+    <string name="action_update_payload">Perbarui payload</string>
     <string name="action_status">Status</string>
     <string name="action_log">Log terjemahan</string>
     <string name="action_injection_status">Status injeksi</string>
     <string name="action_diagnostics">Log injeksi</string>
+    <string name="action_copy">Salin</string>
+    <string name="toast_copied">Disalin ke papan klip</string>
 
     <string name="confirm_install_module">Pasang modul Zygisk yang ada di dalam APK ini? Setelah itu perangkat perlu di-reboot.</string>
     <string name="confirm_remove_module">Hapus modul Zygisk? Terjemahan berhenti setelah reboot berikutnya.</string>
@@ -58,6 +65,8 @@
     <string name="status_line_root">Root: %1$s</string>
     <string name="status_line_module">Modul: %1$s</string>
     <string name="status_line_provider">Layanan terjemahan: %1$s</string>
+    <string name="status_line_gms">Google Play Services: %1$s</string>
+    <string name="status_gms_unavailable">Google Play Services belum siap (kode %1$d). MLKit mengunduh model lewat layanan itu, jadi model baru bisa disiapkan setelah Play Services aktif dan tidak dibekukan.</string>
     <string name="status_line_selected">Aplikasi dipilih: %1$d</string>
     <string name="status_line_translations">Teks diterjemahkan: %1$d</string>
     <string name="status_line_last">Terjemahan terakhir: %1$s</string>
@@ -82,6 +91,7 @@
     <string name="log_empty">Belum ada terjemahan yang tercatat.\n\nSimpan konfigurasi, lalu buka salah satu aplikasi yang dipilih. Setiap teks yang diterjemahkan dan setiap galat (misalnya model belum diunduh) muncul di sini.</string>
     <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>
     <string name="log_entry_error">%1$s  gagal\n%2$s → %3$s</string>
+    <string name="log_saved_at">Disimpan di: %1$s</string>
 
     <plurals name="selected_apps">
         <item quantity="other">%1$d aplikasi dipilih</item>

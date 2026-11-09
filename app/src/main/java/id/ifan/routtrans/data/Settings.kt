@@ -10,6 +10,8 @@ object Settings {
     private const val KEY_FROM = "from"
     private const val KEY_TO = "to"
     private const val KEY_LAST_SAVE = "last_save"
+    private const val KEY_PAYLOAD_HASH = "payload_hash"
+    private const val KEY_MODULE_HASH = "module_hash"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -35,5 +37,21 @@ object Settings {
 
     fun setLastSave(context: Context, time: Long) {
         prefs(context).edit().putLong(KEY_LAST_SAVE, time).apply()
+    }
+
+    /** Sidik dex payload yang terakhir disalin ke folder modul. */
+    fun payloadHash(context: Context): String =
+        prefs(context).getString(KEY_PAYLOAD_HASH, "").orEmpty()
+
+    fun setPayloadHash(context: Context, hash: String) {
+        prefs(context).edit().putString(KEY_PAYLOAD_HASH, hash).apply()
+    }
+
+    /** Sidik zip modul yang terakhir dipasang. */
+    fun moduleHash(context: Context): String =
+        prefs(context).getString(KEY_MODULE_HASH, "").orEmpty()
+
+    fun setModuleHash(context: Context, hash: String) {
+        prefs(context).edit().putString(KEY_MODULE_HASH, hash).apply()
     }
 }

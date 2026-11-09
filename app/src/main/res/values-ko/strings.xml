@@ -24,6 +24,10 @@
     <string name="status_working">현재 작업이 끝날 때까지 기다리세요…</string>
     <string name="status_installing_module">Zygisk 모듈을 설치하는 중…</string>
     <string name="status_removing_module">Zygisk 모듈을 제거하는 중…</string>
+    <string name="status_updating_payload">페이로드를 업데이트하는 중…</string>
+    <string name="toast_payload_updated">페이로드가 업데이트되었습니다</string>
+    <string name="toast_module_updated">모듈이 업데이트되었습니다 — 활성화하려면 재부팅하세요</string>
+    <string name="dialog_payload_updated">최신 페이로드가 모듈 폴더에 복사되었습니다. 대상 앱을 강제 종료한 뒤 다시 여세요. 재부팅은 필요하지 않습니다.</string>
     <string name="status_checking">상태를 확인하는 중…</string>
 
     <string name="toast_saved">설정이 적용되었습니다</string>
@@ -40,10 +44,13 @@
 
     <string name="action_install_module">모듈 설치</string>
     <string name="action_remove_module">모듈 제거</string>
+    <string name="action_update_payload">페이로드 업데이트</string>
     <string name="action_status">상태</string>
     <string name="action_log">번역 로그</string>
     <string name="action_injection_status">주입 상태</string>
     <string name="action_diagnostics">주입 로그</string>
+    <string name="action_copy">복사</string>
+    <string name="toast_copied">클립보드에 복사됨</string>
 
     <string name="confirm_install_module">이 APK에 포함된 Zygisk 모듈을 설치할까요? 설치 후 재부팅해야 합니다.</string>
     <string name="confirm_remove_module">Zygisk 모듈을 제거할까요? 다음 재부팅 후 번역이 중지됩니다.</string>
@@ -58,6 +65,8 @@
     <string name="status_line_root">루트: %1$s</string>
     <string name="status_line_module">모듈: %1$s</string>
     <string name="status_line_provider">번역 서비스: %1$s</string>
+    <string name="status_line_gms">Google Play Services: %1$s</string>
+    <string name="status_gms_unavailable">Google Play Services가 준비되지 않았습니다 (코드 %1$d). MLKit은 이 서비스를 통해 모델을 내려받으므로, Play Services가 활성화되고 동결되지 않은 상태여야 모델을 준비할 수 있습니다.</string>
     <string name="status_line_selected">선택한 앱: %1$d</string>
     <string name="status_line_translations">번역한 텍스트: %1$d</string>
     <string name="status_line_last">마지막 번역: %1$s</string>
@@ -82,6 +91,7 @@
     <string name="log_empty">아직 기록된 번역이 없습니다.\n\n설정을 저장한 뒤 선택한 앱을 여세요. 번역된 모든 텍스트와 오류(예: 아직 내려받지 않은 모델)가 여기에 표시됩니다.</string>
     <string name="log_entry">%1$s  %2$s → %3$s\n%4$s → %5$s</string>
     <string name="log_entry_error">%1$s  실패\n%2$s → %3$s</string>
+    <string name="log_saved_at">저장 위치: %1$s</string>
 
     <plurals name="selected_apps">
         <item quantity="other">%1$d개 앱 선택됨</item>

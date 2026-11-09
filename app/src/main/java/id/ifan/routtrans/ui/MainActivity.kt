@@ -1,12 +1,19 @@
 package id.ifan.routtrans.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Typeface
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -14,8 +21,13 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.progressindicator.LinearProgressIndicator
@@ -24,8 +36,10 @@ import id.ifan.routtrans.data.AppConfig
 import id.ifan.routtrans.data.AppEntry
 import id.ifan.routtrans.data.ConfigStore
 import id.ifan.routtrans.data.InjectionStore
+import id.ifan.routtrans.data.LogFiles
 import id.ifan.routtrans.data.Settings
 import id.ifan.routtrans.root.ModuleManager
+import id.ifan.routtrans.root.PayloadUpdater
 import id.ifan.routtrans.root.RootShell
 import id.ifan.routtrans.translate.LanguageCatalog
 import id.ifan.routtrans.translate.LanguageOption
@@ -70,6 +84,7 @@ class MainActivity : AppCompatActivity() {
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+        applyWindowInsets()
 
         statusText = findViewById(R.id.statusText)
         selectionInfo = findViewById(R.id.selectionInfo)
@@ -91,6 +106,25 @@ class MainActivity : AppCompatActivity() {
         saveButton.setOnClickListener { save() }
         prepareButton.setOnClickListener { prepareModels() }
         injectionInfo.setOnClickListener { showInjectionDetail() }
+
+        // Setelah pasang ulang, preferensi ikut terhapus sehingga waktu simpan
+        // kembali 0 dan catatan injeksi lama tampak seolah masih berlaku.
+        // Anggap pemasangan ini sebagai titik awal konfigurasi.
+        if (Settings.lastSave(this) == 0L) {
+            Settings.setLastSave(this, System.currentTimeMillis())
+        }
+
+        // Log terjemahan ikut dimuat dari penyimpanan supaya tidak kosong
+        // setiap kali proses RoutTrans dimulai ulang.
+        TranslationStore.init(this)
+        // Pastikan payload di folder modul selalu versi yang sama dengan APK.
+        worker.execute {
+            PayloadUpdater.ensureLatest(this)
+            // APK hasil CI juga membawa zip modul; pasang otomatis bila baru.
+            if (ModuleManager.ensureLatest(this)) {
+                runOnUiThread { toast(R.string.toast_module_updated) }
+            }
+        }
 
         updateSelectionInfo()
         loadApps()
@@ -122,6 +156,10 @@ class MainActivity : AppCompatActivity() {
                 confirm(R.string.action_remove_module, R.string.confirm_remove_module) { removeModule() }
                 true
             }
+            R.id.action_update_payload -> {
+                updatePayload()
+                true
+            }
             R.id.action_status -> {
                 showStatus()
                 true
@@ -140,6 +178,25 @@ class MainActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    /**
+     * targetSdk 36 membuat Android menggambar konten sampai ke area status bar,
+     * sehingga judul aplikasi bisa tertutup jam dan notifikasi. Padding di sini
+     * menggeser seluruh isi ke bawah sesuai ukuran system bar.
+     */
+    private fun applyWindowInsets() {
+        val root = findViewById<View>(R.id.root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        WindowCompat.getInsetsController(window, root).isAppearanceLightStatusBars =
+            night != Configuration.UI_MODE_NIGHT_YES
     }
 
     private fun setupLanguages() {
@@ -257,6 +314,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prepareModels() {
+        // MLKit mengunduh model lewat Google Play Services. Kalau layanan itu
+        // tidak siap, unduhan pasti gagal; lebih baik dijelaskan sekarang.
+        val gms = GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(this)
+        if (gms != ConnectionResult.SUCCESS) {
+            val message = getString(R.string.status_gms_unavailable, gms)
+            setStatus(R.string.status_prepare_failed, "kode $gms")
+            dialog(R.string.dialog_failure, message)
+            return
+        }
         val from = sources[spinnerFrom.selectedItemPosition].code
         val to = targets[spinnerTo.selectedItemPosition].code
         setBusy(true, getString(R.string.status_downloading))
@@ -271,8 +338,20 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 runOnUiThread {
                     setBusy(false)
+                    val gms = GoogleApiAvailability.getInstance()
+                        .isGooglePlayServicesAvailable(this@MainActivity)
+                    val message = buildString {
+                        append(getString(R.string.status_prepare_failed, e.message.orEmpty()))
+                        if (gms != ConnectionResult.SUCCESS) {
+                            append("\n\n")
+                            append(getString(R.string.status_line_gms, "kode $gms"))
+                        }
+                    }
                     setStatus(R.string.status_prepare_failed, e.message.orEmpty())
                     toast(R.string.toast_prepare_failed)
+                    // Detail lengkap ditampilkan di dialog: toast terlalu cepat
+                    // hilang untuk pesan galat MLKit yang panjang.
+                    dialog(R.string.dialog_failure, message)
                 }
             }
         }
@@ -311,6 +390,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updatePayload() {
+        setBusy(true, getString(R.string.status_updating_payload))
+        worker.execute {
+            val result = PayloadUpdater.update(this)
+            if (result.ok) PayloadUpdater.rememberCurrent(this)
+            runOnUiThread {
+                setBusy(false)
+                if (result.ok) {
+                    toast(R.string.toast_payload_updated)
+                    dialog(R.string.dialog_success, getString(R.string.dialog_payload_updated))
+                } else {
+                    dialog(R.string.dialog_failure, result.output.ifBlank { getString(R.string.error_unknown) })
+                }
+            }
+        }
+    }
+
     private fun showStatus() {
         setBusy(true, getString(R.string.status_checking))
         worker.execute {
@@ -333,6 +429,17 @@ class MainActivity : AppCompatActivity() {
                 append(getString(R.string.status_line_module, moduleDetail))
                 append('\n')
                 append(getString(R.string.status_line_provider, yesNo(provider)))
+                append('\n')
+                // MLKit mengunduh model lewat Google Play Services; kode selain
+                // SUCCESS menjelaskan kenapa "Siapkan model" gagal.
+                val gms = GoogleApiAvailability.getInstance()
+                    .isGooglePlayServicesAvailable(this@MainActivity)
+                val gmsText = if (gms == ConnectionResult.SUCCESS) {
+                    getString(R.string.value_yes)
+                } else {
+                    "kode $gms"
+                }
+                append(getString(R.string.status_line_gms, gmsText))
                 append('\n')
                 append(getString(R.string.status_line_selected, selected))
                 append('\n')
@@ -367,8 +474,11 @@ class MainActivity : AppCompatActivity() {
     /** Membaca ulang laporan injeksi dan memperbarui baris aplikasi + ringkasan bawah. */
     private fun refreshInjections() {
         if (!::adapter.isInitialized) return
-        val records = InjectionStore.all(this)
         val lastSave = Settings.lastSave(this)
+        // Catatan dari konfigurasi lama dibuang otomatis supaya status yang
+        // tampil selalu berasal dari konfigurasi yang sedang aktif.
+        InjectionStore.prune(this, lastSave)
+        val records = InjectionStore.all(this)
         adapter.setInjections(records, lastSave)
         updateInjectionSummary(records, lastSave)
     }
@@ -460,33 +570,99 @@ class MainActivity : AppCompatActivity() {
      * melihat alasan kegagalan selain memakai komputer.
      */
     private fun showDiagnostics() {
-        setBusy(true, getString(R.string.action_diagnostics))
-        worker.execute {
-            val log = RootShell.run(
-                "logcat -d -t 800 -v brief -s RoutTrans:V AndroidRuntime:E System.err:W 2>/dev/null | tail -120"
-            )
-            val report = log.output.trim().ifBlank { getString(R.string.diagnostics_empty) }
-            runOnUiThread {
-                setBusy(false)
-                dialog(R.string.action_diagnostics, report)
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val text = TextView(this).apply {
+            setPadding(pad, pad, pad, pad)
+            textSize = 11f
+            typeface = Typeface.MONOSPACE
+            setTextIsSelectable(true)
+        }
+        val scroller = ScrollView(this).apply { addView(text) }
+        val handler = Handler(Looper.getMainLooper())
+        val saved = getString(R.string.log_saved_at, LogFiles.path(this, LogFiles.INJECTION))
+
+        val refresh = object : Runnable {
+            override fun run() {
+                worker.execute {
+                    val log = RootShell.run(LOGCAT_COMMAND)
+                    val report = log.output.trim().ifBlank { getString(R.string.diagnostics_empty) }
+                    // Berkas ditulis ulang setiap kali, bukan ditambahi, supaya
+                    // isinya selalu sama dengan yang tampil di dialog.
+                    LogFiles.write(this@MainActivity, LogFiles.INJECTION, report)
+                    runOnUiThread { text.text = "$report\n\n$saved" }
+                }
+                handler.postDelayed(this, LIVE_REFRESH_MS)
             }
         }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_diagnostics)
+            .setView(scroller)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.action_copy) { _, _ ->
+                copyToClipboard(getString(R.string.action_diagnostics), text.text.toString())
+            }
+            .setOnDismissListener { handler.removeCallbacks(refresh) }
+            .show()
+        text.text = getString(R.string.diagnostics_empty)
+        handler.post(refresh)
     }
 
-    private fun showTranslationLog() {        val entries = TranslationStore.recent()
-        if (entries.isEmpty()) {
-            dialog(R.string.action_log, getString(R.string.log_empty))
-            return
+    /**
+     * Log terjemahan dengan pembaruan langsung.
+     *
+     * Payload di aplikasi target bisa mengirim permintaan kapan saja, jadi isi
+     * dialog diperbarui tiap detik selama dibuka; pengguna tidak perlu menutup
+     * dan membuka ulang untuk melihat hasil terbaru.
+     */
+    private fun showTranslationLog() {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val text = TextView(this).apply {
+            setPadding(pad, pad, pad, pad)
+            textSize = 12f
+            typeface = Typeface.MONOSPACE
         }
-        val report = entries.take(40).joinToString("\n") { entry ->
-            val time = formatTime(entry.time)
-            if (entry.ok) {
-                getString(R.string.log_entry, time, entry.from, entry.to, entry.source, entry.result.orEmpty())
+        val scroller = ScrollView(this).apply { addView(text) }
+
+        fun render(): String {
+            val entries = TranslationStore.recent()
+            val body = if (entries.isEmpty()) {
+                getString(R.string.log_empty)
             } else {
-                getString(R.string.log_entry_error, time, entry.source, entry.error.orEmpty())
+                entries.take(40).joinToString("\n") { entry ->
+                    val time = formatTime(entry.time)
+                    if (entry.ok) {
+                        getString(R.string.log_entry, time, entry.from, entry.to, entry.source, entry.result.orEmpty())
+                    } else {
+                        getString(R.string.log_entry_error, time, entry.source, entry.error.orEmpty())
+                    }
+                }
+            }
+            val path = getString(
+                R.string.log_saved_at,
+                LogFiles.path(this, TranslationStore.FILE_NAME),
+            )
+            return "$body\n\n$path"
+        }
+
+        text.text = render()
+        val handler = Handler(Looper.getMainLooper())
+        val tick = object : Runnable {
+            override fun run() {
+                text.text = render()
+                handler.postDelayed(this, 1000L)
             }
         }
-        dialog(R.string.action_log, report)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_log)
+            .setView(scroller)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.action_copy) { _, _ ->
+                copyToClipboard(getString(R.string.action_log), text.text.toString())
+            }
+            .setOnDismissListener { handler.removeCallbacks(tick) }
+            .show()
+        handler.post(tick)
     }
 
     private fun yesNo(value: Boolean): String =
@@ -516,12 +692,27 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, id, Toast.LENGTH_SHORT).show()
     }
 
+    /**
+     * Dialog dengan tombol Salin.
+     *
+     * Hampir semua dialog di sini berisi hasil diagnostik (log, pesan galat
+     * MLKit, status modul), jadi isinya harus bisa ditempel ke tempat lain.
+     */
     private fun dialog(@StringRes title: Int, message: String) {
         AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.action_copy) { _, _ ->
+                copyToClipboard(getString(title), message)
+            }
             .show()
+    }
+
+    private fun copyToClipboard(label: String, text: String) {
+        val clipboard = getSystemService(ClipboardManager::class.java) ?: return
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+        toast(R.string.toast_copied)
     }
 
     private fun confirm(@StringRes title: Int, @StringRes message: Int, action: () -> Unit) {
@@ -531,5 +722,14 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ -> action() }
             .show()
+    }
+
+    private companion object {
+        /** Baris logcat yang relevan untuk payload dan MLKit. */
+        const val LOGCAT_COMMAND =
+            "logcat -d -v brief 2>/dev/null | grep -iE 'routtrans|mlkit|translate|model' | tail -200"
+
+        /** Jeda pembaruan dialog log selama terbuka. */
+        const val LIVE_REFRESH_MS = 3000L
     }
 }

@@ -1,8 +1,10 @@
 package id.ifan.routtrans.root
 
 import android.content.Context
+import id.ifan.routtrans.data.Settings
 import java.io.File
 import java.io.IOException
+import java.security.MessageDigest
 
 /**
  * Memasang dan memeriksa modul Zygisk lewat root.
@@ -88,6 +90,39 @@ object ModuleManager {
 
     fun remove(): RootShell.Result =
         RootShell.run("rm -rf $MODULE_DIR '$STAGING'")
+
+    /**
+     * Memasang zip modul bawaan APK bila belum pernah dipasang versi ini.
+     *
+     * APK hasil CI membawa `assets/routtrans-module.zip`; tanpa langkah ini
+     * pengguna harus ingat memasang modul setiap kali modul ikut berubah.
+     *
+     * @return true bila modul baru saja dipasang dan perlu reboot.
+     */
+    fun ensureLatest(context: Context): Boolean {
+        val hash = bundledHash(context) ?: return false
+        if (Settings.moduleHash(context) == hash) return false
+        val result = install(context)
+        if (!result.ok) return false
+        Settings.setModuleHash(context, hash)
+        return true
+    }
+
+    /** Sidik zip modul di dalam APK; null bila APK tidak memuatnya. */
+    private fun bundledHash(context: Context): String? = try {
+        val digest = MessageDigest.getInstance("SHA-256")
+        context.assets.open(ASSET).use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+    } catch (e: Exception) {
+        null
+    }
 
     fun isProviderAlive(context: Context): Boolean = try {
         val result = context.contentResolver.call(

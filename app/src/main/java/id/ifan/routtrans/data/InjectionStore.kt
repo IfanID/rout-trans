@@ -74,6 +74,27 @@ object InjectionStore {
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().clear().apply()
     }
 
+    /**
+     * Membuang catatan yang lebih lama dari konfigurasi terakhir.
+     *
+     * Setelah aplikasi dipasang ulang atau konfigurasi diterapkan ulang,
+     * catatan lama tidak lagi menggambarkan keadaan sekarang dan hanya
+     * membingungkan.
+     */
+    fun prune(context: Context, before: Long) {
+        if (before <= 0L) return
+        val prefs = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+        val stale = prefs.all
+            .mapNotNull { (key, value) ->
+                if (key == KEY_TOTAL || value !is String) null
+                else if ((parse(value)?.time ?: 0L) < before) key else null
+            }
+        if (stale.isEmpty()) return
+        val editor = prefs.edit()
+        stale.forEach { editor.remove(it) }
+        editor.apply()
+    }
+
     private fun parse(raw: String): Record? = try {
         val json = JSONObject(raw)
         val error = json.optString("error").ifBlank { null }

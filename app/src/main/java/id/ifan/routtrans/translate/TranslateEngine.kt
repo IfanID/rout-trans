@@ -20,7 +20,7 @@ object TranslateEngine {
 
     private const val TRANSLATE_TIMEOUT_SECONDS = 15L
     private const val DETECT_TIMEOUT_SECONDS = 10L
-    private const val MODEL_TIMEOUT_MINUTES = 2L
+    private const val MODEL_TIMEOUT_MINUTES = 5L
     private const val AUTO_DOWNLOAD_TTL_MS = 5 * 60_000L
 
     /** Hasil deteksi dipakai ulang sebentar agar bahasa aplikasi tidak berubah tiap batch. */
@@ -41,7 +41,15 @@ object TranslateEngine {
     /** Mengunduh model sumber dan tujuan. Dipanggil dari tombol "Siapkan model". */
     fun prepare(from: String, to: String) {
         val source = if (from == LanguageCatalog.AUTO) defaultSource(to) else from
-        download(source, to)
+        try {
+            download(source, to)
+        } catch (e: Exception) {
+            // Pesan galat disimpan juga ke log terjemahan supaya pengguna bisa
+            // membacanya lagi tanpa harus menekan tombol berulang kali.
+            val message = describe(e)
+            TranslationStore.add(source, to, "model", null, message)
+            throw IllegalStateException(message, e)
+        }
     }
 
     /**
@@ -166,11 +174,56 @@ object TranslateEngine {
     }
 
     private fun download(source: String, target: String) {
-        Tasks.await(
-            translator(source, target).downloadModelIfNeeded(DownloadConditions.Builder().build()),
-            MODEL_TIMEOUT_MINUTES,
-            TimeUnit.MINUTES,
-        )
+        val conditions = DownloadConditions.Builder().build()
+        try {
+            Tasks.await(
+                translator(source, target).downloadModelIfNeeded(conditions),
+                MODEL_TIMEOUT_MINUTES,
+                TimeUnit.MINUTES,
+            )
+        } catch (e: Exception) {
+            // Model yang tersimpan setengah jadi bisa membuat unduhan selalu
+            // gagal. Buang translator lama lalu coba sekali lagi dengan yang baru.
+            resetTranslator(source, target)
+            Tasks.await(
+                translator(source, target).downloadModelIfNeeded(conditions),
+                MODEL_TIMEOUT_MINUTES,
+                TimeUnit.MINUTES,
+            )
+        }
+    }
+
+    private fun resetTranslator(source: String, target: String) {
+        val key = "$source>$target"
+        val old = synchronized(lock) { translators.remove(key) }
+        try {
+            old?.close()
+        } catch (ignored: Exception) {
+            // Menutup translator yang gagal tidak perlu dilaporkan.
+        }
+    }
+
+    /**
+     * Menggabungkan pesan dari seluruh rantai penyebab.
+     *
+     * MLKit membungkus kegagalan unduhan dengan ExecutionException yang
+     * pesannya hanya "N out of N underlying tasks failed", sehingga penyebab
+     * sebenarnya (mis. Play Services atau jaringan) ada di cause terdalam.
+     */
+    fun describe(error: Throwable): String {
+        val chain = ArrayList<Throwable>()
+        var current: Throwable? = error
+        while (current != null && chain.size < 8) {
+            chain.add(current)
+            val next = current.cause
+            if (next === current) break
+            current = next
+        }
+        return chain.asReversed().joinToString(" <- ") { item ->
+            val detail = item.message?.trim().orEmpty()
+            if (detail.isEmpty()) item.javaClass.simpleName
+            else "${item.javaClass.simpleName}: $detail"
+        }
     }
 
     private fun translator(source: String, target: String): Translator =
@@ -192,7 +245,7 @@ object TranslateEngine {
     }
 
     private fun friendlyError(e: Exception): String {
-        val detail = e.message?.takeIf { it.isNotBlank() }
+        val detail = describe(e).takeIf { it.isNotBlank() }
         return if (detail != null) {
             "Terjemahan gagal: $detail. Pastikan model sudah diunduh lewat tombol Siapkan model."
         } else {

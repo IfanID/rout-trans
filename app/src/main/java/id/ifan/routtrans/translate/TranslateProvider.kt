@@ -16,7 +16,10 @@ import id.ifan.routtrans.data.InjectionStore
  */
 class TranslateProvider : ContentProvider() {
 
-    override fun onCreate(): Boolean = true
+    override fun onCreate(): Boolean {
+        context?.let { TranslationStore.init(it) }
+        return true
+    }
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle =
         when (method) {

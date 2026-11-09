@@ -42,6 +42,23 @@ android {
     }
 }
 
+// Dex payload ikut dibundel sebagai asset supaya menu "Perbarui payload"
+// bisa menyalinnya ke folder modul tanpa memasang ulang zip modul.
+def payloadDexFile = rootProject.file('module/classes.dex')
+def payloadAssetsDir = file("$buildDir/generated/payloadAssets")
+
+def copyPayloadDex = tasks.register('copyPayloadDex', Copy) {
+    onlyIf { payloadDexFile.exists() }
+    from payloadDexFile
+    into payloadAssetsDir
+}
+
+android.sourceSets.main.assets.srcDir(payloadAssetsDir)
+
+tasks.named('preBuild').configure {
+    dependsOn(copyPayloadDex)
+}
+
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'

@@ -11,6 +11,10 @@
         android:title="@string/action_remove_module"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_update_payload"
+        android:title="@string/action_update_payload"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_status"
         android:title="@string/action_status"
         app:showAsAction="never" />
