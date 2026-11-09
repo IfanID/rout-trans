@@ -37,8 +37,16 @@ class ViewScanner(
     private var busy = false
     private var batch = LinkedHashMap<String, MutableList<Request>>()
 
+    // Statistik ringan untuk log: membantu memastikan pemindaian benar-benar
+    // menemukan teks pada aplikasi target.
+    private var textViews = 0
+    private var requested = 0
+    private var lastReport = 0L
+
     fun scan(root: View) {
         batch = LinkedHashMap()
+        textViews = 0
+        requested = 0
         // Penelusuran memakai stack, bukan rekursi: pohon View aplikasi besar
         // (misalnya Compose) bisa sangat dalam dan rekursi berisiko
         // StackOverflowError yang mematikan proses target.
@@ -60,9 +68,19 @@ class ViewScanner(
             }
         }
         submit()
+        report()
+    }
+
+    /** Mencatat ringkasan pemindaian tiap beberapa detik agar tidak membanjiri log. */
+    private fun report() {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastReport < REPORT_MS) return
+        lastReport = now
+        Log.i(TAG, "Pindai: $textViews TextView, $requested teks baru")
     }
 
     private fun inspect(view: TextView) {
+        textViews++
         if (view.transformationMethod is PasswordTransformationMethod) return
         val state = states.getOrPut(view) { ViewState() }
         // Isi EditText adalah ketikan pengguna; hanya hint yang diterjemahkan.
@@ -106,6 +124,7 @@ class ViewScanner(
         if (batch[source]?.any { it.hint == hint && it.view === view } == true) return
 
         batch.getOrPut(source) { mutableListOf() }.add(Request(view, hint, source))
+        requested++
     }
 
     private fun submit() {
@@ -173,5 +192,8 @@ class ViewScanner(
     private companion object {
         const val TAG = "RoutTrans"
         const val RETRY_MS = 60_000L
+
+        /** Jeda antar ringkasan log pemindaian. */
+        const val REPORT_MS = 5000L
     }
 }

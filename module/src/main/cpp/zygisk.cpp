@@ -127,6 +127,7 @@ jobject systemClassLoader(JNIEnv *env) {
 
 std::mutex gDexMutex;
 std::string gDex;
+time_t gDexMtime = 0;
 
 void handleCompanion(int client) {
     struct timeval timeout {};
@@ -157,8 +158,18 @@ void handleCompanion(int client) {
     std::string dex;
     {
         std::lock_guard<std::mutex> lock(gDexMutex);
-        if (gDex.empty() && !readFile(kDexPath, &gDex, kMaxDex)) {
-            LOGW("classes.dex tidak bisa dibaca dari %s", kDexPath);
+        // Companion hidup di proses zygote, jadi isi berkas tidak boleh
+        // di-cache selamanya: dex yang diperbarui harus terbaca tanpa reboot.
+        struct stat info {};
+        if (::stat(kDexPath, &info) == 0 &&
+            (gDex.empty() || info.st_mtime != gDexMtime)) {
+            std::string fresh;
+            if (readFile(kDexPath, &fresh, kMaxDex)) {
+                gDex = std::move(fresh);
+                gDexMtime = info.st_mtime;
+            } else {
+                LOGW("classes.dex tidak bisa dibaca dari %s", kDexPath);
+            }
         }
         dex = gDex;
     }

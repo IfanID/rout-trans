@@ -7,6 +7,7 @@ import android.util.Log
 import id.ifan.routtrans.payload.config.Config
 import id.ifan.routtrans.payload.translate.TranslatorClient
 import id.ifan.routtrans.payload.view.ActivityWatcher
+import id.ifan.routtrans.payload.view.TranslationBadge
 import id.ifan.routtrans.payload.view.ViewScanner
 import id.ifan.routtrans.payload.web.WebViewTranslator
 import java.util.concurrent.atomic.AtomicBoolean
@@ -38,9 +39,10 @@ fun install(application: Application, configJson: String) {
     try {
         val scanner = ViewScanner(config, client)
         val webView = if (config.webView) WebViewTranslator(config, client) else null
-        ActivityWatcher(application, config, scanner, webView).start()
+        val badge = TranslationBadge(application)
+        ActivityWatcher(application, config, scanner, webView, badge).start()
         client.reportInjected(config.from, config.to)
-        Log.i(TAG, "Payload aktif: ${config.from} -> ${config.to}")
+        Log.i(TAG, "Payload v3 aktif: ${config.from} -> ${config.to}")
     } catch (t: Throwable) {
         installed.set(false)
         Log.e(TAG, "Payload gagal dipasang", t)
