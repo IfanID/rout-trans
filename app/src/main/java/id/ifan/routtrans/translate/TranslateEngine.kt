@@ -33,23 +33,88 @@ object TranslateEngine {
     )
 
     private val lock = Any()
+    /** Kode bahasa dengan aksara bukan Latin (aksara utama). */
+    private val NON_LATIN = setOf(
+        "ko", "zh", "ja", "ru", "uk", "bg", "sr", "mk", "be", "kk", "ky", "mn",
+        "ar", "fa", "ur", "he", "th", "hi", "bn", "gu", "pa", "ta", "te", "kn",
+        "ml", "mr", "ne", "si", "my", "km", "lo", "am", "ka", "hy", "el",
+    )
     private val translators = HashMap<String, Translator>()
     private val downloadAttempts = HashMap<String, Long>()
     private val detections = HashMap<String, Pair<String, Long>>()
     private val identifier: LanguageIdentifier by lazy { LanguageIdentification.getClient() }
 
-    /** Mengunduh model sumber dan tujuan. Dipanggil dari tombol "Siapkan model". */
-    fun prepare(from: String, to: String) {
-        val source = if (from == LanguageCatalog.AUTO) defaultSource(to) else from
-        try {
-            download(source, to)
-        } catch (e: Exception) {
-            // Pesan galat disimpan juga ke log terjemahan supaya pengguna bisa
-            // membacanya lagi tanpa harus menekan tombol berulang kali.
-            val message = describe(e)
-            TranslationStore.add(source, to, "model", null, message)
-            throw IllegalStateException(message, e)
+    /** Hasil unduhan satu model; [error] null berarti siap dipakai offline. */
+    data class ModelResult(val source: String, val error: String?)
+
+    /** Folder model MLKit di penyimpanan aplikasi. */
+    fun modelsDir(context: android.content.Context): java.io.File =
+        java.io.File(context.noBackupFilesDir, "com.google.mlkit.translate.models")
+
+    /** Berkas model yang sudah terunduh, diurutkan menurut nama pasangan. */
+    fun installedModels(context: android.content.Context): List<java.io.File> =
+        modelsDir(context)
+            .listFiles { file -> file.isFile && file.name.endsWith(".model") }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+
+    /**
+     * Menghapus berkas model lalu membuang seluruh translator aktif.
+     *
+     * MLKit tidak menyediakan API penghapusan, jadi berkasnya dihapus langsung
+     * dari folder aplikasi; translator lama harus dibuang agar tidak memakai
+     * berkas yang sudah hilang.
+     */
+    fun deleteModels(files: List<java.io.File>) {
+        files.forEach { file ->
+            try {
+                file.delete()
+            } catch (ignored: Exception) {
+                // Berkas yang gagal dihapus dibiarkan; pengguna bisa mencoba lagi.
+            }
         }
+        synchronized(lock) {
+            translators.values.forEach { translator ->
+                try {
+                    translator.close()
+                } catch (ignored: Exception) {
+                    // Menutup translator yang sudah mati tidak perlu dilaporkan.
+                }
+            }
+            translators.clear()
+            downloadAttempts.clear()
+        }
+    }
+
+    /**
+     * Mengunduh beberapa model sumber menuju satu bahasa tujuan.
+     *
+     * MLKit tidak menyediakan unduhan paralel, jadi model diproses berurutan
+     * dan setiap kegagalan dilaporkan sendiri agar satu bahasa gagal tidak
+     * menggagalkan sisanya.
+     */
+    fun prepareMany(
+        sources: List<String>,
+        target: String,
+        progress: (done: Int, total: Int, source: String) -> Unit,
+    ): List<ModelResult> {
+        val list = sources.map { LanguageCatalog.normalize(it) }
+            .filter { it.isNotEmpty() && it != target }
+            .distinct()
+        val results = ArrayList<ModelResult>(list.size)
+        list.forEachIndexed { index, source ->
+            progress(index + 1, list.size, source)
+            val error = try {
+                download(source, target)
+                null
+            } catch (e: Exception) {
+                // Dicatat juga ke log terjemahan supaya pengguna bisa membaca
+                // ulang penyebabnya tanpa mengulang unduhan.
+                describe(e).also { TranslationStore.add(source, target, "model", null, it) }
+            }
+            results.add(ModelResult(source, error))
+        }
+        return results
     }
 
     /**
@@ -82,6 +147,13 @@ object TranslateEngine {
                 results.add(text)
                 continue
             }
+            // Nama pengguna dan istilah Latin tidak boleh diterjemahkan saat
+            // sumbernya beraksara non-Latin; hasilnya selalu ngawur
+            // ("kim" -> "Kim", "Air mata" -> tetap).
+            if (isNonLatinSource(source) && isLatinOnly(text)) {
+                results.add(text)
+                continue
+            }
             try {
                 val out = translateWithModel(translator, source, target, text)
                 results.add(out)
@@ -104,13 +176,15 @@ object TranslateEngine {
      * akurat daripada memeriksa potongan pendek satu per satu, dan hasilnya
      * dipakai ulang selama 30 detik per aplikasi agar tidak berubah-ubah.
      */
-    private fun detect(texts: List<String>, target: String, client: String): String {
+    private fun detect(texts: List<String>, target: String, client: String, fresh: Boolean = false): String {
         val joined = texts.joinToString("\n").take(1000)
         val key = "$client|$target"
         val now = System.currentTimeMillis()
-        synchronized(lock) {
-            detections[key]?.let { (code, at) ->
-                if (now - at < DETECT_TTL_MS) return code
+        if (!fresh) {
+            synchronized(lock) {
+                detections[key]?.let { (code, at) ->
+                    if (now - at < DETECT_TTL_MS) return code
+                }
             }
         }
 
@@ -126,11 +200,22 @@ object TranslateEngine {
             code = defaultSource(target)
         }
         synchronized(lock) {
-            if (detections.size > 32) detections.clear()
-            detections[key] = code to now
+            if (!fresh) {
+                if (detections.size > 32) detections.clear()
+                detections[key] = code to now
+            }
         }
         return code
     }
+
+    /**
+     * Mendeteksi bahasa dari gabungan teks.
+     *
+     * @param fresh true melewati cache 30 detik; dipakai layanan aksesibilitas
+     *   karena isi layar bisa berganti bahasa lebih cepat dari itu.
+     */
+    fun detectLanguage(texts: List<String>, target: String, client: String, fresh: Boolean = false): String =
+        detect(texts, target, if (fresh) "" else client, fresh)
 
     /** Cadangan saat deteksi gagal: bahasa HP, lalu Inggris (atau Indonesia bila tujuan Inggris). */
     private fun defaultSource(target: String): String {
@@ -242,6 +327,30 @@ object TranslateEngine {
     private fun fail(texts: List<String>, from: String, to: String, message: String): Result {
         texts.forEach { TranslationStore.add(from, to, it, null, message) }
         return Result(texts, null, message)
+    }
+
+    /**
+     * Bahasa sumber beraksara non-Latin. Dipakai untuk melewati teks Latin
+     * seperti nama pengguna yang tidak perlu diterjemahkan.
+     */
+    private fun isNonLatinSource(code: String): Boolean = code in NON_LATIN
+
+    /** Teks hanya berisi huruf Latin, angka, dan tanda baca. */
+    private fun isLatinOnly(text: String): Boolean {
+        var letter = false
+        for (ch in text) {
+            if (!ch.isLetter()) continue
+            letter = true
+            val block = Character.UnicodeBlock.of(ch)
+            if (block != Character.UnicodeBlock.BASIC_LATIN &&
+                block != Character.UnicodeBlock.LATIN_1_SUPPLEMENT &&
+                block != Character.UnicodeBlock.LATIN_EXTENDED_A &&
+                block != Character.UnicodeBlock.LATIN_EXTENDED_B
+            ) {
+                return false
+            }
+        }
+        return letter
     }
 
     private fun friendlyError(e: Exception): String {

@@ -4,6 +4,7 @@
 
     <string name="language_auto">Detect automatically</string>
     <string name="label_from">From language</string>
+    <string name="label_languages">Languages</string>
     <string name="label_to">To language</string>
     <string name="action_prepare_model">Prepare model</string>
     <string name="action_save">Save &amp; apply</string>
@@ -21,6 +22,23 @@
     <string name="status_downloading">Downloading language model…</string>
     <string name="status_models_ready">Language models are ready. Translation can now run offline.</string>
     <string name="status_prepare_failed">Model download failed: %1$s</string>
+    <string name="status_preparing_model">Preparing %1$d/%2$d: %3$s → %4$s</string>
+    <string name="status_models_partial">%1$d of %2$d models ready</string>
+    <string name="models_dialog_message">Target: %1$s\nEach model is about %2$d MB and is downloaded one by one.</string>
+    <string name="models_empty">No other source language available.</string>
+    <string name="model_ready_line">✓ %1$s → %2$s</string>
+    <string name="model_failed_line">✗ %1$s → %2$s\n%3$s</string>
+    <string name="action_download">Download</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_delete_models">Delete models</string>
+    <string name="models_none">No downloaded models yet.</string>
+    <string name="confirm_delete_models">Delete the selected models? They must be downloaded again to be used offline.</string>
+    <string name="toast_models_deleted">Models deleted</string>
+    <string name="toast_no_model_selected">Select at least one language</string>
+    <string name="notification_channel_models">Model downloads</string>
+    <string name="notification_channel_models_desc">Progress while RoutTrans prepares language models.</string>
+    <string name="notification_models_title">RoutTrans — language models</string>
+    <string name="notification_models_done">%1$d models ready</string>
     <string name="status_working">Wait for the current operation to finish…</string>
     <string name="status_installing_module">Installing Zygisk module…</string>
     <string name="status_removing_module">Removing Zygisk module…</string>
@@ -46,6 +64,9 @@
     <string name="action_update_payload">Update payload</string>
     <string name="action_status">Status</string>
     <string name="action_log">Translation log</string>
+    <string name="action_app_log">App log</string>
+    <string name="xposed_description">Translates text drawn with Canvas and Compose inside selected apps.</string>
+    <string name="app_log_empty">No app events yet.</string>
     <string name="action_injection_status">Injection status</string>
     <string name="action_diagnostics">Injection log</string>
     <string name="action_copy">Copy</string>

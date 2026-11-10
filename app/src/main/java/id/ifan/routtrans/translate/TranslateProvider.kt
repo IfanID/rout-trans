@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import id.ifan.routtrans.data.InjectionStore
+import id.ifan.routtrans.data.Settings
 
 /**
  * Titik masuk terjemahan untuk payload yang berjalan di proses aplikasi lain.
@@ -26,8 +27,20 @@ class TranslateProvider : ContentProvider() {
             METHOD_PING -> Bundle().apply { putBoolean("ok", true) }
             METHOD_TRANSLATE -> translate(extras)
             METHOD_INJECTED -> recordInjection(extras)
+            METHOD_CONFIG -> config(extras)
             else -> error("Metode tidak dikenal: $method")
         }
+
+    /** Dipakai hook LSPosed di proses aplikasi lain untuk membaca pilihan. */
+    private fun config(extras: Bundle?): Bundle {
+        val ctx = context ?: return Bundle().apply { putBoolean("enabled", false) }
+        val pkg = extras?.getString(KEY_PACKAGE).orEmpty()
+        return Bundle().apply {
+            putBoolean("enabled", Settings.selectedPackages(ctx).contains(pkg))
+            putString("from", Settings.from(ctx))
+            putString("to", Settings.to(ctx))
+        }
+    }
 
     /** Payload melapor setelah berhasil atau gagal terpasang di proses target. */
     private fun recordInjection(extras: Bundle?): Bundle {
@@ -111,6 +124,7 @@ class TranslateProvider : ContentProvider() {
         const val METHOD_PING = "ping"
         const val METHOD_TRANSLATE = "translate"
         const val METHOD_INJECTED = "injected"
+        const val METHOD_CONFIG = "config"
         const val KEY_TEXTS = "texts"
         const val KEY_FROM = "from"
         const val KEY_TO = "to"

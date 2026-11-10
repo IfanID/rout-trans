@@ -4,6 +4,7 @@
 
     <string name="language_auto">자동 감지</string>
     <string name="label_from">원본 언어</string>
+    <string name="label_languages">언어</string>
     <string name="label_to">대상 언어</string>
     <string name="action_prepare_model">모델 준비</string>
     <string name="action_save">저장 및 적용</string>
@@ -21,6 +22,23 @@
     <string name="status_downloading">언어 모델을 내려받는 중…</string>
     <string name="status_models_ready">언어 모델이 준비되었습니다. 이제 오프라인으로 번역할 수 있습니다.</string>
     <string name="status_prepare_failed">모델 다운로드 실패: %1$s</string>
+    <string name="status_preparing_model">준비 중 %1$d/%2$d: %3$s → %4$s</string>
+    <string name="status_models_partial">%2$d개 중 %1$d개 모델 준비됨</string>
+    <string name="models_dialog_message">대상 언어: %1$s\n모델 하나당 약 %2$d MB이며 하나씩 다운로드합니다.</string>
+    <string name="models_empty">선택할 수 있는 다른 원본 언어가 없습니다.</string>
+    <string name="model_ready_line">✓ %1$s → %2$s</string>
+    <string name="model_failed_line">✗ %1$s → %2$s\n%3$s</string>
+    <string name="action_download">다운로드</string>
+    <string name="action_delete">삭제</string>
+    <string name="action_delete_models">모델 삭제</string>
+    <string name="models_none">아직 다운로드한 모델이 없습니다.</string>
+    <string name="confirm_delete_models">선택한 모델을 삭제할까요? 오프라인으로 사용하려면 다시 다운로드해야 합니다.</string>
+    <string name="toast_models_deleted">모델이 삭제되었습니다</string>
+    <string name="toast_no_model_selected">언어를 하나 이상 선택하세요</string>
+    <string name="notification_channel_models">모델 다운로드</string>
+    <string name="notification_channel_models_desc">RoutTrans가 언어 모델을 준비하는 동안의 진행 상황입니다.</string>
+    <string name="notification_models_title">RoutTrans — 언어 모델</string>
+    <string name="notification_models_done">모델 %1$d개 준비됨</string>
     <string name="status_working">현재 작업이 끝날 때까지 기다리세요…</string>
     <string name="status_installing_module">Zygisk 모듈을 설치하는 중…</string>
     <string name="status_removing_module">Zygisk 모듈을 제거하는 중…</string>
@@ -47,6 +65,9 @@
     <string name="action_update_payload">페이로드 업데이트</string>
     <string name="action_status">상태</string>
     <string name="action_log">번역 로그</string>
+    <string name="action_app_log">앱 로그</string>
+    <string name="xposed_description">선택한 앱에서 Canvas와 Compose로 그린 텍스트를 번역합니다.</string>
+    <string name="app_log_empty">아직 앱 이벤트가 없습니다.</string>
     <string name="action_injection_status">주입 상태</string>
     <string name="action_diagnostics">주입 로그</string>
     <string name="action_copy">복사</string>

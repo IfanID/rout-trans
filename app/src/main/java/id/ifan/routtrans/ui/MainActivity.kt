@@ -1,13 +1,17 @@
 package id.ifan.routtrans.ui
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -35,8 +39,10 @@ import id.ifan.routtrans.R
 import id.ifan.routtrans.data.AppConfig
 import id.ifan.routtrans.data.AppEntry
 import id.ifan.routtrans.data.ConfigStore
+import id.ifan.routtrans.data.AppLog
 import id.ifan.routtrans.data.InjectionStore
 import id.ifan.routtrans.data.LogFiles
+import id.ifan.routtrans.data.ModelNotifier
 import id.ifan.routtrans.data.Settings
 import id.ifan.routtrans.root.ModuleManager
 import id.ifan.routtrans.root.PayloadUpdater
@@ -45,6 +51,7 @@ import id.ifan.routtrans.translate.LanguageCatalog
 import id.ifan.routtrans.translate.LanguageOption
 import id.ifan.routtrans.translate.TranslateEngine
 import id.ifan.routtrans.translate.TranslationStore
+import java.io.File
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -77,9 +84,19 @@ class MainActivity : AppCompatActivity() {
     private var targets: List<LanguageOption> = emptyList()
     private var busy = false
     private var rootAvailable = false
+    private var lastLogRefresh = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Mencatat crash (termasuk kegagalan memuat kelas layanan) ke app.log
+        // agar penyebabnya bisa dibaca tanpa logcat.
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            AppLog.add(this, "CRASH ${error.javaClass.simpleName}: ${error.message ?: "-"}")
+            previousHandler?.uncaughtException(thread, error)
+        }
+
         setContentView(R.layout.activity_main)
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
@@ -119,11 +136,16 @@ class MainActivity : AppCompatActivity() {
         TranslationStore.init(this)
         // Pastikan payload di folder modul selalu versi yang sama dengan APK.
         worker.execute {
+            AppLog.add(this, "Aplikasi dibuka")
             PayloadUpdater.ensureLatest(this)
             // APK hasil CI juga membawa zip modul; pasang otomatis bila baru.
             if (ModuleManager.ensureLatest(this)) {
+                AppLog.add(this, "Modul diperbarui, menunggu reboot")
                 runOnUiThread { toast(R.string.toast_module_updated) }
             }
+            // Log injeksi selalu tersedia di Android/data tanpa harus membuka
+            // menunya lebih dulu.
+            LogFiles.write(this, LogFiles.INJECTION, readInjectionLog())
         }
 
         updateSelectionInfo()
@@ -135,6 +157,23 @@ class MainActivity : AppCompatActivity() {
         // Status injeksi bisa berubah saat pengguna membuka aplikasi target
         // lalu kembali ke sini, jadi selalu dibaca ulang.
         refreshInjections()
+        refreshInjectionLogIfStale()
+    }
+
+    /**
+     * Menyegarkan `injection.log` saat aplikasi kembali ke depan.
+     *
+     * Tanpa ini berkas hanya terisi ketika RoutTrans dibuka dari awal, sehingga
+     * kejadian di aplikasi target sering tidak terekam. Dibatasi agar tidak
+     * memanggil root terlalu sering.
+     */
+    private fun refreshInjectionLogIfStale() {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastLogRefresh < LOG_REFRESH_MS) return
+        lastLogRefresh = now
+        worker.execute {
+            LogFiles.write(this, LogFiles.INJECTION, readInjectionLog())
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -174,6 +213,14 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.action_log -> {
                 showTranslationLog()
+                true
+            }
+            R.id.action_app_log -> {
+                showAppLog()
+                true
+            }
+            R.id.action_delete_models -> {
+                showDeleteModels()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -302,6 +349,8 @@ class MainActivity : AppCompatActivity() {
                 Settings.setFrom(this, from)
                 Settings.setTo(this, to)
                 Settings.setLastSave(this, System.currentTimeMillis())
+                Settings.setSelectedPackages(this, selected.map { it.packageName })
+                AppLog.add(this, "Konfigurasi disimpan: ${selected.size} aplikasi, $from → $to")
                 refreshInjections()
                 when {
                     !stopped.ok -> setStatus(R.string.status_saved_stop_failed, selected.size)
@@ -313,6 +362,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Membuka dialog pilih model.
+     *
+     * Satu model MLKit berlaku untuk satu pasangan bahasa, jadi pengguna perlu
+     * memilih bahasa mana saja yang ingin disiapkan sekaligus. Tanpa dialog
+     * ini hanya pasangan yang sedang tampil di dropdown yang terunduh.
+     */
     private fun prepareModels() {
         // MLKit mengunduh model lewat Google Play Services. Kalau layanan itu
         // tidak siap, unduhan pasti gagal; lebih baik dijelaskan sekarang.
@@ -324,37 +380,177 @@ class MainActivity : AppCompatActivity() {
             dialog(R.string.dialog_failure, message)
             return
         }
-        val from = sources[spinnerFrom.selectedItemPosition].code
-        val to = targets[spinnerTo.selectedItemPosition].code
-        setBusy(true, getString(R.string.status_downloading))
-        worker.execute {
-            try {
-                TranslateEngine.prepare(from, to)
-                runOnUiThread {
-                    setBusy(false)
-                    setStatus(R.string.status_models_ready)
-                    toast(R.string.toast_models_ready)
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    setBusy(false)
-                    val gms = GoogleApiAvailability.getInstance()
-                        .isGooglePlayServicesAvailable(this@MainActivity)
-                    val message = buildString {
-                        append(getString(R.string.status_prepare_failed, e.message.orEmpty()))
-                        if (gms != ConnectionResult.SUCCESS) {
-                            append("\n\n")
-                            append(getString(R.string.status_line_gms, "kode $gms"))
-                        }
-                    }
-                    setStatus(R.string.status_prepare_failed, e.message.orEmpty())
-                    toast(R.string.toast_prepare_failed)
-                    // Detail lengkap ditampilkan di dialog: toast terlalu cepat
-                    // hilang untuk pesan galat MLKit yang panjang.
-                    dialog(R.string.dialog_failure, message)
+
+        val toIndex = spinnerTo.selectedItemPosition
+        val toCode = targets[toIndex].code
+        val toLabel = targets[toIndex].label(this)
+        val options = targets.filter { it.code != toCode }
+        if (options.isEmpty()) {
+            dialog(R.string.dialog_failure, getString(R.string.models_empty))
+            return
+        }
+
+        // Yang sudah dipakai sekarang langsung dicentang: bahasa sumber yang
+        // dipilih dan bahasa perangkat.
+        val current = sources[spinnerFrom.selectedItemPosition].code
+        val preferred = setOf(
+            LanguageCatalog.normalize(LanguageCatalog.deviceLanguage()),
+            LanguageCatalog.normalize(current),
+        )
+        val checked = BooleanArray(options.size) { options[it].code in preferred }
+        val labels = options.map { it.label(this) }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_prepare_model)
+            .setMessage(getString(R.string.models_dialog_message, toLabel, MODEL_SIZE_MB))
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                checked[which] = isChecked
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.action_download) { _, _ ->
+                val chosen = options.filterIndexed { index, _ -> checked[index] }.map { it.code }
+                if (chosen.isEmpty()) {
+                    toast(R.string.toast_no_model_selected)
+                } else {
+                    downloadModels(chosen, toCode)
                 }
             }
+            .show()
+    }
+
+    /** Mengunduh beberapa model berurutan dan melaporkan hasil tiap bahasa. */
+    private fun downloadModels(sourcesToDownload: List<String>, to: String) {
+        ensureNotificationPermission()
+        setBusy(true, getString(R.string.status_downloading))
+        worker.execute {
+            val results = TranslateEngine.prepareMany(sourcesToDownload, to) { done, total, source ->
+                // Notifikasi ikut diperbarui dari thread ini; NotificationManager
+                // aman dipanggil lintas thread.
+                ModelNotifier.progress(this, done, total, labelOf(source), labelOf(to))
+                runOnUiThread {
+                    setStatus(
+                        R.string.status_preparing_model,
+                        done,
+                        total,
+                        labelOf(source),
+                        labelOf(to),
+                    )
+                }
+            }
+
+            val ready = results.count { it.error == null }
+            ModelNotifier.finish(this, ready, results.size)
+            AppLog.add(this, "Model siap: $ready/${results.size}")
+
+            runOnUiThread {
+                setBusy(false)
+                val report = results.joinToString("\n") { result ->
+                    if (result.error == null) {
+                        getString(R.string.model_ready_line, labelOf(result.source), labelOf(to))
+                    } else {
+                        getString(
+                            R.string.model_failed_line,
+                            labelOf(result.source),
+                            labelOf(to),
+                            result.error.orEmpty(),
+                        )
+                    }
+                }
+
+                if (ready == results.size) {
+                    setStatus(R.string.status_models_ready)
+                    toast(R.string.toast_models_ready)
+                } else {
+                    setStatus(R.string.status_models_partial, ready, results.size)
+                }
+                // Rincian per bahasa selalu ditampilkan; kalau ada yang gagal,
+                // pesan cause MLKit-nya ikut terlihat dan bisa disalin.
+                dialog(
+                    if (ready == results.size) R.string.dialog_success else R.string.dialog_failure,
+                    report,
+                )
+            }
         }
+    }
+
+    private fun labelOf(code: String): String =
+        targets.firstOrNull { it.code == code }?.label(this) ?: code
+
+    /** Membaca logcat yang relevan; dipakai dialog dan penulisan berkas. */
+    private fun readInjectionLog(): String {
+        val log = RootShell.run(LOGCAT_COMMAND)
+        return log.output.trim().ifBlank { getString(R.string.diagnostics_empty) }
+    }
+
+    /** Log kejadian aplikasi: payload, modul, konfigurasi, dan unduhan model. */
+    private fun showAppLog() {
+        val file = File(LogFiles.dir(this), AppLog.FILE_NAME)
+        val report = try {
+            if (file.exists()) file.readText().trim() else ""
+        } catch (e: Exception) {
+            ""
+        }.ifBlank { getString(R.string.app_log_empty) }
+        val path = getString(R.string.log_saved_at, file.absolutePath)
+        dialog(R.string.action_app_log, "$report\n\n$path")
+    }
+
+    /**
+     * Menjelaskan mode aksesibilitas dan membuka pengaturan yang diperlukan.
+     *
+     * Mode ini melengkapi mode View: teks Compose, dialog, dan bottom sheet
+     * hanya terbaca lewat pohon aksesibilitas.
+     */
+
+    /** Menampilkan daftar model terunduh dan memungkinkan penghapusan. */
+    private fun showDeleteModels() {
+        val files = TranslateEngine.installedModels(this)
+        if (files.isEmpty()) {
+            dialog(R.string.action_delete_models, getString(R.string.models_none))
+            return
+        }
+        val labels = files.map { modelLabel(it) }.toTypedArray()
+        val checked = BooleanArray(files.size)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_delete_models)
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                checked[which] = isChecked
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.action_delete) { _, _ ->
+                val chosen = files.filterIndexed { index, _ -> checked[index] }
+                if (chosen.isEmpty()) {
+                    toast(R.string.toast_no_model_selected)
+                    return@setPositiveButton
+                }
+                confirm(R.string.action_delete, R.string.confirm_delete_models) {
+                    TranslateEngine.deleteModels(chosen)
+                    AppLog.add(this, "Model dihapus: ${chosen.size}")
+                    toast(R.string.toast_models_deleted)
+                }
+            }
+            .show()
+    }
+
+    /** Nama berkas model diubah menjadi "en → ko · 32 MB". */
+    private fun modelLabel(file: File): String {
+        val base = file.name.removeSuffix(".model")
+        val parts = base.split('_')
+        val pair = if (parts.size >= 2) "${parts.first()} → ${parts.last()}" else base
+        val mb = (file.length() / (1024 * 1024)).coerceAtLeast(1)
+        return "$pair · $mb MB"
+    }
+
+    /** Peringatan saat layanan aksesibilitas mati setelah pembaruan APK. */
+
+    /** Memeriksa apakah layanan RoutTrans sudah diaktifkan di pengaturan sistem. */
+
+    /** Android 13+ meminta izin notifikasi sebelum progres unduhan bisa tampil. */
+    private fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) return
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
     }
 
     private fun installModule() {
@@ -584,8 +780,7 @@ class MainActivity : AppCompatActivity() {
         val refresh = object : Runnable {
             override fun run() {
                 worker.execute {
-                    val log = RootShell.run(LOGCAT_COMMAND)
-                    val report = log.output.trim().ifBlank { getString(R.string.diagnostics_empty) }
+                    val report = readInjectionLog()
                     // Berkas ditulis ulang setiap kali, bukan ditambahi, supaya
                     // isinya selalu sama dengan yang tampil di dialog.
                     LogFiles.write(this@MainActivity, LogFiles.INJECTION, report)
@@ -727,9 +922,18 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         /** Baris logcat yang relevan untuk payload dan MLKit. */
         const val LOGCAT_COMMAND =
-            "logcat -d -v brief 2>/dev/null | grep -iE 'routtrans|mlkit|translate|model' | tail -200"
+            "logcat -d -v brief 2>/dev/null | grep -aE 'RoutTrans[A-Za-z]*\\(|MlKit|mlkit|AndroidRuntime.*ifan.routtrans|Accessibility.*ifan.routtrans' | tail -300"
 
         /** Jeda pembaruan dialog log selama terbuka. */
         const val LIVE_REFRESH_MS = 3000L
+
+        /** Perkiraan ukuran satu model bahasa MLKit, untuk informasi di dialog. */
+        const val MODEL_SIZE_MB = 30
+
+        /** Kode permintaan izin notifikasi Android 13+. */
+        const val REQUEST_NOTIFICATIONS = 41
+
+        /** Jarak minimal antar penyegaran injection.log saat aplikasi dibuka. */
+        const val LOG_REFRESH_MS = 20_000L
     }
 }

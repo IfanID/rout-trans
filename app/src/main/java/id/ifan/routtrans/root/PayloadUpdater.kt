@@ -2,6 +2,7 @@ package id.ifan.routtrans.root
 
 import android.content.Context
 import android.util.Log
+import id.ifan.routtrans.data.AppLog
 import id.ifan.routtrans.data.Settings
 import java.io.File
 import java.security.MessageDigest
@@ -32,8 +33,10 @@ object PayloadUpdater {
         val result = update(context)
         if (result.ok) {
             Settings.setPayloadHash(context, hash)
+            AppLog.add(context, "Payload diperbarui otomatis")
             Log.i(TAG, "Payload otomatis diperbarui")
         } else {
+            AppLog.add(context, "Payload gagal diperbarui: ${result.output}")
             Log.w(TAG, "Payload otomatis gagal: ${result.output}")
         }
     }

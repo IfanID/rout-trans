@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "RoutTrans"
 include ':app'
 include ':payload'
+include ':xposed-api'

@@ -1,6 +1,7 @@
 package id.ifan.routtrans.root
 
 import android.content.Context
+import id.ifan.routtrans.data.AppLog
 import id.ifan.routtrans.data.Settings
 import java.io.File
 import java.io.IOException
@@ -103,8 +104,12 @@ object ModuleManager {
         val hash = bundledHash(context) ?: return false
         if (Settings.moduleHash(context) == hash) return false
         val result = install(context)
-        if (!result.ok) return false
+        if (!result.ok) {
+            AppLog.add(context, "Modul gagal dipasang: ${result.output}")
+            return false
+        }
         Settings.setModuleHash(context, hash)
+        AppLog.add(context, "Modul dipasang otomatis (perlu reboot)")
         return true
     }
 

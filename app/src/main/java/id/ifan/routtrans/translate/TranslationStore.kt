@@ -17,7 +17,7 @@ import java.util.concurrent.Executors
  */
 object TranslationStore {
 
-    const val MAX_ENTRIES = 200
+    const val MAX_ENTRIES = 500
     const val FILE_NAME = "translations.log"
 
     data class Entry(
@@ -49,6 +49,15 @@ object TranslationStore {
         if (file != null) return
         val target = File(LogFiles.dir(context), FILE_NAME)
         target.parentFile?.mkdirs()
+        if (!target.exists()) {
+            // Berkas kosong tetap dibuat supaya ketiga log terlihat di
+            // pengelola berkas sejak aplikasi pertama kali dibuka.
+            try {
+                target.createNewFile()
+            } catch (e: Exception) {
+                // Diabaikan; log tetap ditulis saat ada entri baru.
+            }
+        }
         file = target
         val loaded = read(target)
         synchronized(entries) {

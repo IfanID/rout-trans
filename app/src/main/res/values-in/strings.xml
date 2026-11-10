@@ -4,6 +4,7 @@
 
     <string name="language_auto">Deteksi otomatis</string>
     <string name="label_from">Dari bahasa</string>
+    <string name="label_languages">Bahasa</string>
     <string name="label_to">Ke bahasa</string>
     <string name="action_prepare_model">Siapkan model</string>
     <string name="action_save">Simpan &amp; terapkan</string>
@@ -21,6 +22,23 @@
     <string name="status_downloading">Mengunduh model bahasa…</string>
     <string name="status_models_ready">Model bahasa siap. Terjemahan bisa berjalan offline.</string>
     <string name="status_prepare_failed">Unduhan model gagal: %1$s</string>
+    <string name="status_preparing_model">Menyiapkan %1$d/%2$d: %3$s → %4$s</string>
+    <string name="status_models_partial">%1$d dari %2$d model siap</string>
+    <string name="models_dialog_message">Tujuan: %1$s\nTiap model sekitar %2$d MB dan diunduh satu per satu.</string>
+    <string name="models_empty">Tidak ada bahasa sumber lain yang tersedia.</string>
+    <string name="model_ready_line">✓ %1$s → %2$s</string>
+    <string name="model_failed_line">✗ %1$s → %2$s\n%3$s</string>
+    <string name="action_download">Unduh</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_delete_models">Hapus model</string>
+    <string name="models_none">Belum ada model yang terunduh.</string>
+    <string name="confirm_delete_models">Hapus model terpilih? Model harus diunduh ulang agar bisa dipakai offline.</string>
+    <string name="toast_models_deleted">Model dihapus</string>
+    <string name="toast_no_model_selected">Pilih minimal satu bahasa</string>
+    <string name="notification_channel_models">Unduhan model</string>
+    <string name="notification_channel_models_desc">Kemajuan saat RoutTrans menyiapkan model bahasa.</string>
+    <string name="notification_models_title">RoutTrans — model bahasa</string>
+    <string name="notification_models_done">%1$d model siap</string>
     <string name="status_working">Tunggu operasi yang sedang berjalan selesai…</string>
     <string name="status_installing_module">Memasang modul Zygisk…</string>
     <string name="status_removing_module">Menghapus modul Zygisk…</string>
@@ -47,6 +65,9 @@
     <string name="action_update_payload">Perbarui payload</string>
     <string name="action_status">Status</string>
     <string name="action_log">Log terjemahan</string>
+    <string name="action_app_log">Log aplikasi</string>
+    <string name="xposed_description">Menerjemahkan teks yang digambar dengan Canvas dan Compose di aplikasi yang dipilih.</string>
+    <string name="app_log_empty">Belum ada kejadian aplikasi.</string>
     <string name="action_injection_status">Status injeksi</string>
     <string name="action_diagnostics">Log injeksi</string>
     <string name="action_copy">Salin</string>

@@ -66,4 +66,6 @@ dependencies {
     implementation 'com.google.mlkit:translate:17.0.1'
     // Dipakai saat sumber bahasa disetel "Deteksi otomatis".
     implementation 'com.google.mlkit:language-id:17.0.6'
+    // Hanya untuk kompilasi hook; kelas aslinya disediakan LSPosed saat runtime.
+    compileOnly project(':xposed-api')
 }

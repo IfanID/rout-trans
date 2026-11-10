@@ -4,6 +4,11 @@
     <!-- Daftar aplikasi yang bisa dipilih; Android 11+ membatasi query paket. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Progres unduhan model ditampilkan di notifikasi. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Overlay hasil terjemahan mode aksesibilitas. -->
+    <!-- Menyinkronkan payload setelah perangkat menyala. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="false"
@@ -31,6 +36,30 @@
             android:name=".translate.TranslateProvider"
             android:authorities="id.ifan.routtrans.translate"
             android:exported="true" />
+
+        <!-- Modul LSPosed: hook teks yang digambar Canvas (Compose, kanvas). -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="@string/xposed_description" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+
+        <!--
+            Menyinkronkan dex payload dan zip modul segera setelah APK
+            diperbarui, tanpa menunggu aplikasi dibuka.
+        -->
+        <receiver
+            android:name=".system.UpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

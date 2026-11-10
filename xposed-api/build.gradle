@@ -1,0 +1,10 @@
+// Stub API Xposed hanya untuk kompilasi. Saat berjalan, kelas aslinya
+// disediakan oleh LSPosed di proses aplikasi target.
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}

@@ -30,4 +30,12 @@
         android:id="@+id/action_log"
         android:title="@string/action_log"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_app_log"
+        android:title="@string/action_app_log"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_delete_models"
+        android:title="@string/action_delete_models"
+        app:showAsAction="never" />
 </menu>
