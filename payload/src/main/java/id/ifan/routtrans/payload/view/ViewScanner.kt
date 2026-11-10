@@ -40,16 +40,26 @@ class ViewScanner(
     // Statistik ringan untuk log: membantu memastikan pemindaian benar-benar
     // menemukan teks pada aplikasi target.
     private var textViews = 0
+    private var candidates = 0
     private var requested = 0
+    private var windows = 0
     private var lastReport = 0L
 
-    fun scan(root: View) {
+    fun scan(roots: List<View>) {
         batch = LinkedHashMap()
         textViews = 0
+        candidates = 0
         requested = 0
-        // Penelusuran memakai stack, bukan rekursi: pohon View aplikasi besar
-        // (misalnya Compose) bisa sangat dalam dan rekursi berisiko
-        // StackOverflowError yang mematikan proses target.
+        windows = roots.size
+        roots.forEach { scanRoot(it) }
+        submit()
+        report()
+    }
+
+    /** Penelusuran memakai stack, bukan rekursi: pohon View aplikasi besar
+     * (misalnya Compose) bisa sangat dalam dan rekursi berisiko
+     * StackOverflowError yang mematikan proses target. */
+    private fun scanRoot(root: View) {
         val stack = ArrayDeque<View>()
         stack.addLast(root)
         while (stack.isNotEmpty()) {
@@ -67,8 +77,6 @@ class ViewScanner(
                 Log.w(TAG, "View dilewati", t)
             }
         }
-        submit()
-        report()
     }
 
     /** Mencatat ringkasan pemindaian tiap beberapa detik agar tidak membanjiri log. */
@@ -76,7 +84,7 @@ class ViewScanner(
         val now = SystemClock.uptimeMillis()
         if (now - lastReport < REPORT_MS) return
         lastReport = now
-        Log.i(TAG, "Pindai: $textViews TextView, $requested teks baru")
+        Log.i(TAG, "Pindai: $textViews TextView, $candidates kandidat, $requested baru, $windows jendela")
     }
 
     private fun inspect(view: TextView) {
@@ -110,6 +118,7 @@ class ViewScanner(
 
     private fun request(view: TextView, hint: Boolean, source: String) {
         if (!TextFilter.shouldTranslate(source, config.minLength, config.maxLength)) return
+        candidates++
 
         // Hasil yang sudah tersimpan bisa langsung dipasang tanpa menunggu worker.
         client.cached(config.from, config.to, source)?.let { translated ->
@@ -134,20 +143,35 @@ class ViewScanner(
         busy = true
 
         worker.execute {
-            val results = client.translate(config.from, config.to, texts)
+            // Kegagalan satu batch (provider mati, timeout Binder) tidak boleh
+            // membekukan pemindaian: busy harus selalu dilepas.
+            val results = try {
+                client.translate(config.from, config.to, texts)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Batch terjemahan gagal", t)
+                null
+            }
             handler.post {
-                val bySource = texts.indices.associate { texts[it] to results[it] }
-                for (request in requests) {
-                    val translated = bySource[request.source]
-                    if (translated != null) {
-                        attempted.remove(keyOf(request.hint, request.source))
-                        apply(request.view, request.hint, request.source, translated)
+                try {
+                    if (results == null) {
+                        val now = SystemClock.uptimeMillis()
+                        requests.forEach { attempted[keyOf(it.hint, it.source)] = now }
                     } else {
-                        attempted[keyOf(request.hint, request.source)] = SystemClock.uptimeMillis()
+                        val bySource = texts.indices.associate { texts[it] to results[it] }
+                        for (request in requests) {
+                            val translated = bySource[request.source]
+                            if (translated != null) {
+                                attempted.remove(keyOf(request.hint, request.source))
+                                apply(request.view, request.hint, request.source, translated)
+                            } else {
+                                attempted[keyOf(request.hint, request.source)] = SystemClock.uptimeMillis()
+                            }
+                        }
                     }
+                } finally {
+                    busy = false
+                    batch = LinkedHashMap()
                 }
-                busy = false
-                batch = LinkedHashMap()
             }
         }
     }

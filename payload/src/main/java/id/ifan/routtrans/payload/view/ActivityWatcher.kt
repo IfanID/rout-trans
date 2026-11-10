@@ -27,6 +27,7 @@ class ActivityWatcher(
     private val handler = Handler(Looper.getMainLooper())
     private var resumed: Activity? = null
     private var lastWaitLog = 0L
+    private var lastRootLog = 0L
 
     private val tick = object : Runnable {
         override fun run() {
@@ -75,9 +76,23 @@ class ActivityWatcher(
             return
         }
         badge?.attach(activity)
-        val root = activity.window?.decorView ?: return
-        scanner.scan(root)
-        webViewTranslator?.scan(root)
+        // Semua jendela proses ikut dipindai: dialog, bottom sheet, dan popup
+        // tidak berada di decorView Activity sehingga sebelumnya terlewat.
+        val roots = WindowRoots.collect(activity.window?.decorView)
+        logRoots(roots)
+        scanner.scan(roots)
+        webViewTranslator?.let { translator ->
+            roots.forEach { root -> translator.scan(root) }
+        }
+    }
+
+    /** Mencatat jenis tiap jendela agar terlihat apakah isinya Compose/WebView. */
+    private fun logRoots(roots: List<android.view.View>) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastRootLog < ROOT_LOG_MS) return
+        lastRootLog = now
+        val names = roots.joinToString(", ") { it.javaClass.simpleName }
+        Log.i(TAG, "Jendela: $names")
     }
 
     override fun onActivityResumed(activity: Activity) {
@@ -112,5 +127,8 @@ class ActivityWatcher(
 
         /** Jeda antar peringatan "belum ada Activity" di log. */
         const val WAIT_LOG_MS = 10_000L
+
+        /** Jeda antar ringkasan jenis jendela. */
+        const val ROOT_LOG_MS = 10_000L
     }
 }

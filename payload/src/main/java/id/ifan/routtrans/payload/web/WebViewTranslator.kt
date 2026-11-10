@@ -32,10 +32,11 @@ class WebViewTranslator(
     private val worker = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "RoutTransWeb").apply { isDaemon = true }
     }
-    private val installed = WeakHashMap<WebView, Boolean>()
+    private val installed = WeakHashMap<WebView, Long>()
     private val attempted = HashMap<String, Long>()
     @Volatile
     private var busy = false
+    private var lastItemLog = 0L
 
     fun scan(root: View) {
         // Stack dipakai agar pohon View yang dalam tidak memicu StackOverflowError
@@ -59,12 +60,24 @@ class WebViewTranslator(
     }
 
     private fun install(webView: WebView) {
-        if (installed.containsKey(webView)) return
         // Jangan mengaktifkan JavaScript yang memang dimatikan aplikasi.
         if (!webView.settings.javaScriptEnabled) return
-        installed[webView] = true
-        webView.addJavascriptInterface(Bridge(webView), BRIDGE)
-        webView.evaluateJavascript(SCRIPT, null)
+        val now = SystemClock.uptimeMillis()
+        val last = installed[webView] ?: 0L
+        // Navigasi ke halaman baru membuang konteks JavaScript, jadi skrip
+        // dipasang ulang berkala. Skripnya sendiri langsung berhenti bila
+        // masih aktif, sehingga ini murah.
+        if (now - last < INSTALL_INTERVAL_MS) return
+        installed[webView] = now
+        if (last == 0L) {
+            Log.i(TAG, "WebView ditemukan: ${webView.javaClass.name}")
+        }
+        try {
+            webView.addJavascriptInterface(Bridge(webView), BRIDGE)
+            webView.evaluateJavascript(SCRIPT, null)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Skrip WebView gagal dipasang", t)
+        }
     }
 
     private inner class Bridge(private val webView: WebView) {
@@ -80,39 +93,62 @@ class WebViewTranslator(
                 .filter { TextFilter.shouldTranslate(it, config.minLength, config.maxLength) }
                 .filter { canAttempt(it, now) }
             if (texts.isEmpty()) return
+            logItems(texts.size)
 
             busy = true
             worker.execute {
-                val results = client.translate(config.from, config.to, texts)
-                val bySource = texts.indices.associate { texts[it] to results[it] }
-                val response = JSONArray()
-                for (item in items) {
-                    val translated = bySource[item.text]
-                    response.put(
-                        JSONObject()
-                            .put("id", item.id)
-                            .put("text", translated ?: JSONObject.NULL)
-                    )
+                // Kegagalan provider tidak boleh membekukan WebView: busy
+                // selalu dilepas di finally.
+                val results = try {
+                    client.translate(config.from, config.to, texts)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Batch WebView gagal", t)
+                    null
                 }
                 handler.post {
                     try {
-                        webView.evaluateJavascript("window.$APPLY($response)", null)
-                    } catch (t: Throwable) {
-                        Log.w(TAG, "Hasil WebView gagal dipasang", t)
-                    }
-                    synchronized(attempted) {
-                        for ((text, value) in bySource) {
-                            if (value == null) attempted[text] = SystemClock.uptimeMillis()
+                        if (results == null) {
+                            val now = SystemClock.uptimeMillis()
+                            synchronized(attempted) { texts.forEach { attempted[it] = now } }
+                        } else {
+                            val bySource = texts.indices.associate { texts[it] to results[it] }
+                            val response = JSONArray()
+                            for (item in items) {
+                                val translated = bySource[item.text]
+                                response.put(
+                                    JSONObject()
+                                        .put("id", item.id)
+                                        .put("text", translated ?: JSONObject.NULL)
+                                )
+                            }
+                            try {
+                                webView.evaluateJavascript("window.$APPLY($response)", null)
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "Hasil WebView gagal dipasang", t)
+                            }
+                            synchronized(attempted) {
+                                for ((text, value) in bySource) {
+                                    if (value == null) attempted[text] = SystemClock.uptimeMillis()
+                                }
+                            }
                         }
+                    } finally {
+                        busy = false
                     }
-                    busy = false
                 }
             }
         }
     }
 
-    private fun canAttempt(text: String, now: Long): Boolean = synchronized(attempted) {
-        val last = attempted[text] ?: return@synchronized true
+    /** Mencatat jumlah teks yang dikirim halaman, dibatasi agar log tidak banjir. */
+    private fun logItems(count: Int) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastItemLog < 5000L) return
+        lastItemLog = now
+        Log.i(TAG, "WebView mengirim $count teks")
+    }
+
+    private fun canAttempt(text: String, now: Long): Boolean = synchronized(attempted) {        val last = attempted[text] ?: return@synchronized true
         if (now - last < RETRY_MS) return@synchronized false
         attempted.remove(text)
         true
@@ -139,6 +175,9 @@ class WebViewTranslator(
         const val BRIDGE = "RoutTransBridge"
         const val APPLY = "__routTransApply"
         const val RETRY_MS = 60_000L
+
+        /** Jeda pemasangan ulang skrip per WebView untuk menangkap navigasi. */
+        const val INSTALL_INTERVAL_MS = 1500L
 
         /**
          * Skrip sengaja kecil dan tanpa dependensi. Tiap text node diberi
